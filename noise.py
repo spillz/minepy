@@ -248,7 +248,6 @@ class SimplexNoise:
         grad = ((0,-1,1),)*N
         grad = numpy.array(list(itertools.product(*grad))[1:])
         grad = grad[numpy.abs(grad).sum(-1)>=N-1]
-        print grad
 
         gik = 0
         for x in range(N-1,-1,-1):

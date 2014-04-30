@@ -15,8 +15,8 @@ import itertools
 TICKS_PER_SEC = 60
 
 # Size of sectors used to ease block loading.
-SECTOR_SIZE = 16
-SECTOR_HEIGHT = 200
+SECTOR_SIZE = 32
+SECTOR_HEIGHT = 256
 
 WALKING_SPEED = 5
 FLYING_SPEED = 15
@@ -96,7 +96,7 @@ FACES = [
     ( 0, 0,-1),
 ]
 
-noisen = noise.SimplexNoise(seed=1)
+noisen = noise.SimplexNoise(seed=int(time.time()))
 
 
 def normalize(position):
@@ -314,7 +314,6 @@ class Sector(object):
 
         N1=noisen.noise(Z + numpy.array([self.position[0],self.position[2]])/STEP)
         #N2=noisen(Z, seed = 32424)
-        print '##',N1.min(), N1.max()
         #N1 = ((N1 - N1.min())/(N1.max() - N1.min()))*20
         N1 = N1.reshape((SECTOR_SIZE,SECTOR_SIZE))
         #N2 = (N2 - N2.min())/(N2.max() - N2.min())*30
@@ -339,7 +338,8 @@ class Model(object):
         # _show_block() and _hide_block() calls
 #        self.queue = deque()
 
-        for pos in itertools.product((-32,-16,0,16,32),(0,),(-32,-16,0,16,32)):
+	d = range(-128,129,SECTOR_SIZE)
+        for pos in itertools.product(d,(0,),d):
             s=Sector(pos, self.group, self)
 #            if pos!=(0,0,0):
 #                s.shown=False
@@ -789,7 +789,7 @@ class Window(pyglet.window.Window):
         glViewport(0, 0, width, height)
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        gluPerspective(65.0, width / float(height), 0.1, 60.0)
+        gluPerspective(65.0, width / float(height), 0.1, 200.0)
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         x, y = self.rotation
@@ -859,8 +859,9 @@ def setup_fog():
     glFogi(GL_FOG_MODE, GL_LINEAR)
     # How close and far away fog starts and ends. The closer the start and end,
     # the denser the fog in the fog range.
-    glFogf(GL_FOG_START, 20.0)
-    glFogf(GL_FOG_END, 60.0)
+    glFogf(GL_FOG_START, 150.0)
+    glFogf(GL_FOG_END, 200.0)
+
 
 
 def setup():
