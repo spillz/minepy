@@ -8,10 +8,15 @@ from pyglet.gl import *
 from pyglet.graphics import TextureGroup
 from pyglet.window import key, mouse
 
+import noise
+import numpy
+import itertools
+
 TICKS_PER_SEC = 60
 
 # Size of sectors used to ease block loading.
 SECTOR_SIZE = 16
+SECTOR_HEIGHT = 200
 
 WALKING_SPEED = 5
 FLYING_SPEED = 15
@@ -70,10 +75,17 @@ def tex_coords(top, bottom, side):
 
 TEXTURE_PATH = 'texture.png'
 
-GRASS = tex_coords((1, 0), (0, 1), (0, 0))
-SAND = tex_coords((1, 1), (1, 1), (1, 1))
-BRICK = tex_coords((2, 0), (2, 0), (2, 0))
-STONE = tex_coords((2, 1), (2, 1), (2, 1))
+BLOCKS = {
+    1: tex_coords((1, 0), (0, 1), (0, 0)),
+    2: tex_coords((1, 1), (1, 1), (1, 1)),
+    3: tex_coords((2, 0), (2, 0), (2, 0)),
+    4: tex_coords((2, 1), (2, 1), (2, 1))
+    }
+
+GRASS = 1
+SAND = 2
+BRICK = 3
+STONE = 4
 
 FACES = [
     ( 0, 1, 0),
@@ -83,6 +95,8 @@ FACES = [
     ( 0, 0, 1),
     ( 0, 0,-1),
 ]
+
+noisen = noise.SimplexNoise(seed=1)
 
 
 def normalize(position):
@@ -117,74 +131,235 @@ def sectorize(position):
     """
     x, y, z = normalize(position)
     x, y, z = x / SECTOR_SIZE, y / SECTOR_SIZE, z / SECTOR_SIZE
-    return (x, 0, z)
+    return (x*SECTOR_SIZE, 0, z*SECTOR_SIZE)
+
+
+class Sector(object):
+    def __init__(self,position,group,model,shown=True):
+        self.position = position[0],-40,position[2]
+        self.group = group
+        self.model = model
+        # A Batch is a collection of vertex lists for batched rendering.
+        self.batch = pyglet.graphics.Batch()
+        self.blocks = numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT,SECTOR_SIZE),dtype='u2')
+        self.shown = shown
+        # Mapping from position to a pyglet `VertextList` for all shown blocks.
+        self._shown = {}
+
+    def __getitem__(self, position):
+        position = normalize(position)
+        pos = tuple(position - numpy.array(self.position))
+        return self.blocks[pos[0],pos[1],pos[2]]
+
+    def __setitem__(self, position, value):
+        position = normalize(position)
+        pos = tuple(position - numpy.array(self.position))
+        self.blocks[pos[0],pos[1],pos[2]] = value
+        
+    def grid(self):
+        grid = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
+        sh = grid.shape
+        grid = grid.reshape((sh[0]*sh[1]*sh[2],3))
+        grid += numpy.array(self.position)
+        return grid
+
+    def __iter__(self):
+        grid = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
+        sh = grid.shape
+        grid = grid.reshape((sh[0]*sh[1]*sh[2],3))
+        grid += numpy.array(self.position)
+        #grid = grid[self.blocks.reshape((sh[0]*sh[1]*sh[2]))>0]
+        for m in grid:
+            yield m[0],m[1],m[2]
+    
+    def add_block(self, position, texture, immediate=True):
+        """ Add a block with the given `texture` and `position` to the world.
+
+        Parameters
+        ----------
+        position : tuple of len 3
+            The (x, y, z) position of the block to add.
+        texture : list of len 3
+            The coordinates of the texture squares. Use `tex_coords()` to
+            generate.
+        immediate : bool
+            Whether or not to draw the block immediately.
+
+        """
+        position = normalize(position)
+        if self[position] != 0:
+            self.remove_block(position, immediate)
+        self[position] = texture
+        if immediate:
+            if self.model.exposed(position):
+                self.show_block(position)
+                self.model.check_neighbors(position)
+
+    def edge_blocks(self,dx=0,dz=0):
+        pos = self.position
+        try:
+            s=self.model.sectors[sectorize((pos[0]+dx*SECTOR_SIZE,pos[1],pos[2]+dz*SECTOR_SIZE))]
+        except KeyError:
+            s=None
+        if s is not None:
+            if dx>0:
+                return s.blocks[0,:,:]==0
+            elif dx<0:
+                return s.blocks[-1,:,:]==0
+            elif dz>0:
+                return s.blocks[:,:,0]==0
+            elif dz<0:
+                return s.blocks[:,:,-1]==0
+        else:
+            if dx>0:
+                return numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE),dtype=bool)
+            elif dx<0:
+                return numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE),dtype=bool)
+            elif dz>0:
+                return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
+            elif dz<0:
+                return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
+                
+            
+
+    def check_show(self):
+        solid = self.blocks>0
+        exposed = numpy.zeros(solid.shape,dtype=bool)
+        exposed[0,:,:] = self.edge_blocks(dx=-1)
+        exposed[-1,:,:] = self.edge_blocks(dx=1)
+        exposed[:,:,0] = self.edge_blocks(dz=-1)
+        exposed[:,:,-1] = self.edge_blocks(dz=1)
+        exposed[1:,:,:] |= ~solid[:-1,:,:]
+        exposed[:-1,:,:] |= ~solid[1:,:,:]
+        exposed[:,1:,:] |= ~solid[:,:-1,:]
+        exposed[:,:-1,:] |= ~solid[:,1:,:]
+        exposed[:,:,1:] |= ~solid[:,:,:-1]
+        exposed[:,:,:-1] |= ~solid[:,:,1:]
+        exposed = exposed*solid
+        sh = exposed.shape
+        exposed = exposed.swapaxes(0,2).reshape(sh[0]*sh[1]*sh[2])
+        pos = self.grid()[exposed>0]
+        for p in pos:
+            self.show_block(p)
+
+    def remove_block(self, position, immediate=True):
+        """ Remove the block at the given `position`.
+
+        Parameters
+        ----------
+        position : tuple of len 3
+            The (x, y, z) position of the block to remove.
+        immediate : bool
+            Whether or not to immediately remove block from canvas.
+
+        """
+        position = normalize(position)
+        self.hide_block(position)
+        self[position] = 0
+        self.model.check_neighbors(position)
+
+    def show_block(self, position, immediate=True):
+        """ Show the block at the given `position`. This method assumes the
+        block has already been added with add_block()
+
+        Parameters
+        ----------
+        position : tuple of len 3
+            The (x, y, z) position of the block to show.
+        immediate : bool
+            Whether or not to show the block immediately.
+
+        """
+        x, y, z = position
+        if (x,y,z) in self._shown:
+            return
+        texture = BLOCKS[self[position]]
+        vertex_data = cube_vertices(int(x), int(y), int(z), 0.5)
+        texture_data = list(texture)
+        # create vertex list
+        # FIXME Maybe `add_indexed()` should be used instead
+        self._shown[(x,y,z)] = self.batch.add(24, GL_QUADS, self.group,
+            ('v3f/static', vertex_data),
+            ('t2f/static', texture_data))
+
+    def hide_block(self, position, immediate=True):
+        """ Hide the block at the given `position`. Hiding does not remove the
+        block from the world.
+
+        Parameters
+        ----------
+        position : tuple of len 3
+            The (x, y, z) position of the block to hide.
+        immediate : bool
+            Whether or not to immediately remove the block from the canvas.
+
+        """
+        if position not in self._shown:
+            return
+        self._shown.pop(position).delete()
+#        try:
+#            self._shown.pop(position).delete()
+#        except:
+#            pass
+
+    def _initialize(self):
+        """ Initialize the world by placing all the blocks.
+
+        """
+        N = SECTOR_SIZE
+        STEP = 40.0
+        Z = numpy.mgrid[0:N,0:N].T/STEP
+        shape = Z.shape
+        Z = Z.reshape((shape[0]*shape[1],2))
+
+        N1=noisen.noise(Z + numpy.array([self.position[0],self.position[2]])/STEP)
+        #N2=noisen(Z, seed = 32424)
+        print '##',N1.min(), N1.max()
+        #N1 = ((N1 - N1.min())/(N1.max() - N1.min()))*20
+        N1 = N1.reshape((SECTOR_SIZE,SECTOR_SIZE))
+        #N2 = (N2 - N2.min())/(N2.max() - N2.min())*30
+        Z = Z*STEP + numpy.array([self.position[0],self.position[2]])
+        b = numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE,SECTOR_SIZE),dtype='u2')
+        for y in range(SECTOR_HEIGHT):
+            b[y] = (y-40<N1-2)*STONE + (((y-40>=N1-2) & (y-40<N1))*GRASS)
+        self.blocks = b.swapaxes(0,1).swapaxes(0,2)
 
 
 class Model(object):
 
     def __init__(self):
 
-        # A Batch is a collection of vertex lists for batched rendering.
-        self.batch = pyglet.graphics.Batch()
-
         # A TextureGroup manages an OpenGL texture.
         self.group = TextureGroup(image.load(TEXTURE_PATH).get_texture())
 
-        # A mapping from position to the texture of the block at that position.
-        # This defines all the blocks that are currently in the world.
-        self.world = {}
-
-        # Same mapping as `world` but only contains blocks that are shown.
-        self.shown = {}
-
-        # Mapping from position to a pyglet `VertextList` for all shown blocks.
-        self._shown = {}
-
-        # Mapping from sector to a list of positions inside that sector.
+        # The world is stored in sector chunks.
         self.sectors = {}
 
         # Simple function queue implementation. The queue is populated with
         # _show_block() and _hide_block() calls
-        self.queue = deque()
+#        self.queue = deque()
 
-        self._initialize()
+        for pos in itertools.product((-32,-16,0,16,32),(0,),(-32,-16,0,16,32)):
+            s=Sector(pos, self.group, self)
+#            if pos!=(0,0,0):
+#                s.shown=False
+            self.sectors[sectorize(pos)] = s
+            s._initialize()
+        for s in self.sectors:
+            self.sectors[s].check_show()
 
-    def _initialize(self):
-        """ Initialize the world by placing all the blocks.
 
-        """
-        n = 80  # 1/2 width and height of world
-        s = 1  # step size
-        y = 0  # initial y height
-        for x in xrange(-n, n + 1, s):
-            for z in xrange(-n, n + 1, s):
-                # create a layer stone an grass everywhere.
-                self.add_block((x, y - 2, z), GRASS, immediate=False)
-                self.add_block((x, y - 3, z), STONE, immediate=False)
-                if x in (-n, n) or z in (-n, n):
-                    # create outer walls.
-                    for dy in xrange(-2, 3):
-                        self.add_block((x, y + dy, z), STONE, immediate=False)
+    def __getitem__(self, position):
+        try:
+            return self.sectors[sectorize(position)][position]
+        except:
+            return None
 
-        # generate the hills randomly
-        o = n - 10
-        for _ in xrange(120):
-            a = random.randint(-o, o)  # x position of the hill
-            b = random.randint(-o, o)  # z position of the hill
-            c = -1  # base of the hill
-            h = random.randint(1, 6)  # height of the hill
-            s = random.randint(4, 8)  # 2 * s is the side length of the hill
-            d = 1  # how quickly to taper off the hills
-            t = random.choice([GRASS, SAND, BRICK])
-            for y in xrange(c, c + h):
-                for x in xrange(a - s, a + s + 1):
-                    for z in xrange(b - s, b + s + 1):
-                        if (x - a) ** 2 + (z - b) ** 2 > (s + 1) ** 2:
-                            continue
-                        if (x - 0) ** 2 + (z - 0) ** 2 < 5 ** 2:
-                            continue
-                        self.add_block((x, y, z), t, immediate=False)
-                s -= d  # decrement side lenth so hills taper off
+    def draw(self):
+        for s in self.sectors:
+            if self.sectors[s].shown:
+                self.sectors[s].batch.draw()
+
 
     def hit_test(self, position, vector, max_distance=8):
         """ Line of sight search from current position. If a block is
@@ -207,8 +382,10 @@ class Model(object):
         previous = None
         for _ in xrange(max_distance * m):
             key = normalize((x, y, z))
-            if key != previous and key in self.world:
-                return key, previous
+            if key != previous:
+                b = self[key]
+                if b != 0 and b is not None:
+                    return key, previous
             previous = key
             x, y, z = x + dx / m, y + dy / m, z + dz / m
         return None, None
@@ -220,50 +397,10 @@ class Model(object):
         """
         x, y, z = position
         for dx, dy, dz in FACES:
-            if (x + dx, y + dy, z + dz) not in self.world:
+            b = self[normalize((x + dx, y + dy, z + dz))]
+            if b == 0:
                 return True
         return False
-
-    def add_block(self, position, texture, immediate=True):
-        """ Add a block with the given `texture` and `position` to the world.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to add.
-        texture : list of len 3
-            The coordinates of the texture squares. Use `tex_coords()` to
-            generate.
-        immediate : bool
-            Whether or not to draw the block immediately.
-
-        """
-        if position in self.world:
-            self.remove_block(position, immediate)
-        self.world[position] = texture
-        self.sectors.setdefault(sectorize(position), []).append(position)
-        if immediate:
-            if self.exposed(position):
-                self.show_block(position)
-            self.check_neighbors(position)
-
-    def remove_block(self, position, immediate=True):
-        """ Remove the block at the given `position`.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to remove.
-        immediate : bool
-            Whether or not to immediately remove block from canvas.
-
-        """
-        del self.world[position]
-        self.sectors[sectorize(position)].remove(position)
-        if immediate:
-            if position in self.shown:
-                self.hide_block(position)
-            self.check_neighbors(position)
 
     def check_neighbors(self, position):
         """ Check all blocks surrounding `position` and ensure their visual
@@ -275,154 +412,14 @@ class Model(object):
         x, y, z = position
         for dx, dy, dz in FACES:
             key = (x + dx, y + dy, z + dz)
-            if key not in self.world:
+            b = self[key]
+            if b==0 or b is None:
                 continue
             if self.exposed(key):
-                if key not in self.shown:
-                    self.show_block(key)
+                self.sectors[sectorize(key)].show_block(key)
             else:
-                if key in self.shown:
-                    self.hide_block(key)
+                self.sectors[sectorize(key)].hide_block(key)
 
-    def show_block(self, position, immediate=True):
-        """ Show the block at the given `position`. This method assumes the
-        block has already been added with add_block()
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to show.
-        immediate : bool
-            Whether or not to show the block immediately.
-
-        """
-        texture = self.world[position]
-        self.shown[position] = texture
-        if immediate:
-            self._show_block(position, texture)
-        else:
-            self._enqueue(self._show_block, position, texture)
-
-    def _show_block(self, position, texture):
-        """ Private implementation of the `show_block()` method.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to show.
-        texture : list of len 3
-            The coordinates of the texture squares. Use `tex_coords()` to
-            generate.
-
-        """
-        x, y, z = position
-        vertex_data = cube_vertices(x, y, z, 0.5)
-        texture_data = list(texture)
-        # create vertex list
-        # FIXME Maybe `add_indexed()` should be used instead
-        self._shown[position] = self.batch.add(24, GL_QUADS, self.group,
-            ('v3f/static', vertex_data),
-            ('t2f/static', texture_data))
-
-    def hide_block(self, position, immediate=True):
-        """ Hide the block at the given `position`. Hiding does not remove the
-        block from the world.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to hide.
-        immediate : bool
-            Whether or not to immediately remove the block from the canvas.
-
-        """
-        self.shown.pop(position)
-        if immediate:
-            self._hide_block(position)
-        else:
-            self._enqueue(self._hide_block, position)
-
-    def _hide_block(self, position):
-        """ Private implementation of the 'hide_block()` method.
-
-        """
-        self._shown.pop(position).delete()
-
-    def show_sector(self, sector):
-        """ Ensure all blocks in the given sector that should be shown are
-        drawn to the canvas.
-
-        """
-        for position in self.sectors.get(sector, []):
-            if position not in self.shown and self.exposed(position):
-                self.show_block(position, False)
-
-    def hide_sector(self, sector):
-        """ Ensure all blocks in the given sector that should be hidden are
-        removed from the canvas.
-
-        """
-        for position in self.sectors.get(sector, []):
-            if position in self.shown:
-                self.hide_block(position, False)
-
-    def change_sectors(self, before, after):
-        """ Move from sector `before` to sector `after`. A sector is a
-        contiguous x, y sub-region of world. Sectors are used to speed up
-        world rendering.
-
-        """
-        before_set = set()
-        after_set = set()
-        pad = 4
-        for dx in xrange(-pad, pad + 1):
-            for dy in [0]:  # xrange(-pad, pad + 1):
-                for dz in xrange(-pad, pad + 1):
-                    if dx ** 2 + dy ** 2 + dz ** 2 > (pad + 1) ** 2:
-                        continue
-                    if before:
-                        x, y, z = before
-                        before_set.add((x + dx, y + dy, z + dz))
-                    if after:
-                        x, y, z = after
-                        after_set.add((x + dx, y + dy, z + dz))
-        show = after_set - before_set
-        hide = before_set - after_set
-        for sector in show:
-            self.show_sector(sector)
-        for sector in hide:
-            self.hide_sector(sector)
-
-    def _enqueue(self, func, *args):
-        """ Add `func` to the internal queue.
-
-        """
-        self.queue.append((func, args))
-
-    def _dequeue(self):
-        """ Pop the top function from the internal queue and call it.
-
-        """
-        func, args = self.queue.popleft()
-        func(*args)
-
-    def process_queue(self):
-        """ Process the entire queue while taking periodic breaks. This allows
-        the game loop to run smoothly. The queue contains calls to
-        _show_block() and _hide_block() so this method should be called if
-        add_block() or remove_block() was called with immediate=False
-
-        """
-        start = time.clock()
-        while self.queue and time.clock() - start < 1.0 / TICKS_PER_SEC:
-            self._dequeue()
-
-    def process_entire_queue(self):
-        """ Process the entire queue with no breaks.
-
-        """
-        while self.queue:
-            self._dequeue()
 
 
 class Window(pyglet.window.Window):
@@ -446,7 +443,7 @@ class Window(pyglet.window.Window):
 
         # Current (x, y, z) position in the world, specified with floats. Note
         # that, perhaps unlike in math class, the y-axis is the vertical axis.
-        self.position = (0, 0, 0)
+        self.position = (0, 20, 0)
 
         # First element is rotation of the player in the x-z plane (ground
         # plane) measured from the z-axis down. The second is the rotation
@@ -562,14 +559,14 @@ class Window(pyglet.window.Window):
             The change in time since the last call.
 
         """
-        self.model.process_queue()
-        sector = sectorize(self.position)
-        if sector != self.sector:
-            self.model.change_sectors(self.sector, sector)
-            if self.sector is None:
-                self.model.process_entire_queue()
-            self.sector = sector
-        m = 8
+#        self.model.process_queue()
+#        sector = sectorize(self.position)
+#        if sector != self.sector:
+#            self.model.change_sectors(self.sector, sector)
+#            if self.sector is None:
+#                self.model.process_entire_queue()
+#            self.sector = sector
+        m = 20
         dt = min(dt, 0.2)
         for _ in xrange(m):
             self._update(dt / m)
@@ -624,7 +621,7 @@ class Window(pyglet.window.Window):
         # have to count as a collision. If 0, touching terrain at all counts as
         # a collision. If .49, you sink into the ground, as if walking through
         # tall grass. If >= .5, you'll fall through the ground.
-        pad = 0.25
+        pad = 0.1
         p = list(position)
         np = normalize(position)
         for face in FACES:  # check all surrounding blocks
@@ -639,7 +636,8 @@ class Window(pyglet.window.Window):
                     op = list(np)
                     op[1] -= dy
                     op[i] += face[i]
-                    if tuple(op) not in self.model.world:
+                    b = self.model[normalize(op)]
+                    if b==0 or b is None:
                         continue
                     p[i] -= (d - pad) * face[i]
                     if face == (0, -1, 0) or face == (0, 1, 0):
@@ -673,11 +671,13 @@ class Window(pyglet.window.Window):
                     ((button == mouse.LEFT) and (modifiers & key.MOD_CTRL)):
                 # ON OSX, control + left click = right click.
                 if previous:
-                    self.model.add_block(previous, self.block)
+                    self.model.sectors[sectorize(previous)].add_block(previous, self.block)
+#
+#                    self.model.add_block(previous, self.block)
             elif button == pyglet.window.mouse.LEFT and block:
-                texture = self.model.world[block]
+                texture = self.model[block]
                 if texture != STONE:
-                    self.model.remove_block(block)
+                    self.model.sectors[sectorize(block)].remove_block(block)
         else:
             self.set_exclusive_mouse(True)
 
@@ -805,7 +805,7 @@ class Window(pyglet.window.Window):
         self.clear()
         self.set_3d()
         glColor3d(1, 1, 1)
-        self.model.batch.draw()
+        self.model.draw()
         self.draw_focused_block()
         self.set_2d()
         self.draw_label()
@@ -833,7 +833,7 @@ class Window(pyglet.window.Window):
         x, y, z = self.position
         self.label.text = '%02d (%.2f, %.2f, %.2f) %d / %d' % (
             pyglet.clock.get_fps(), x, y, z,
-            len(self.model._shown), len(self.model.world))
+            0,0)#len(self.model._shown), len(self.model.world))
         self.label.draw()
 
     def draw_reticle(self):
