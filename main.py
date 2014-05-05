@@ -2,424 +2,25 @@ import math
 import random
 import time
 
-from collections import deque
-from pyglet import image
-from pyglet.gl import *
+# pyglet imports
+import pyglet
+image = pyglet.image
 from pyglet.graphics import TextureGroup
 from pyglet.window import key, mouse
+import pyglet.gl as gl
 
-import noise
+# standard lib imports
+from collections import deque
 import numpy
 import itertools
 
-TICKS_PER_SEC = 60
-
-# Size of sectors used to ease block loading.
-SECTOR_SIZE = 32
-SECTOR_HEIGHT = 256
-
-WALKING_SPEED = 5
-FLYING_SPEED = 15
-
-GRAVITY = 20.0
-MAX_JUMP_HEIGHT = 1.0 # About the height of a block.
-# To derive the formula for calculating jump speed, first solve
-#    v_t = v_0 + a * t
-# for the time at which you achieve maximum height, where a is the acceleration
-# due to gravity and v_t = 0. This gives:
-#    t = - v_0 / a
-# Use t and the desired MAX_JUMP_HEIGHT to solve for v_0 (jump speed) in
-#    s = s_0 + v_0 * t + (a * t^2) / 2
-JUMP_SPEED = math.sqrt(2 * GRAVITY * MAX_JUMP_HEIGHT)
-TERMINAL_VELOCITY = 50
-
-PLAYER_HEIGHT = 2
-
-def cube_vertices(x, y, z, n):
-    """ Return the vertices of the cube at position x, y, z with size 2*n.
-
-    """
-    return [
-        x-n,y+n,z-n, x-n,y+n,z+n, x+n,y+n,z+n, x+n,y+n,z-n,  # top
-        x-n,y-n,z-n, x+n,y-n,z-n, x+n,y-n,z+n, x-n,y-n,z+n,  # bottom
-        x-n,y-n,z-n, x-n,y-n,z+n, x-n,y+n,z+n, x-n,y+n,z-n,  # left
-        x+n,y-n,z+n, x+n,y-n,z-n, x+n,y+n,z-n, x+n,y+n,z+n,  # right
-        x-n,y-n,z+n, x+n,y-n,z+n, x+n,y+n,z+n, x-n,y+n,z+n,  # front
-        x+n,y-n,z-n, x-n,y-n,z-n, x-n,y+n,z-n, x+n,y+n,z-n,  # back
-    ]
-
-
-def tex_coord(x, y, n=4):
-    """ Return the bounding vertices of the texture square.
-
-    """
-    m = 1.0 / n
-    dx = x * m
-    dy = y * m
-    return dx, dy, dx + m, dy, dx + m, dy + m, dx, dy + m
-
-
-def tex_coords(top, bottom, side):
-    """ Return a list of the texture squares for the top, bottom and side.
-
-    """
-    top = tex_coord(*top)
-    bottom = tex_coord(*bottom)
-    side = tex_coord(*side)
-    result = []
-    result.extend(top)
-    result.extend(bottom)
-    result.extend(side * 4)
-    return result
-
-
-TEXTURE_PATH = 'texture.png'
-
-BLOCKS = {
-    1: tex_coords((1, 0), (0, 1), (0, 0)),
-    2: tex_coords((1, 1), (1, 1), (1, 1)),
-    3: tex_coords((2, 0), (2, 0), (2, 0)),
-    4: tex_coords((2, 1), (2, 1), (2, 1))
-    }
-
-GRASS = 1
-SAND = 2
-BRICK = 3
-STONE = 4
-
-FACES = [
-    ( 0, 1, 0),
-    ( 0,-1, 0),
-    (-1, 0, 0),
-    ( 1, 0, 0),
-    ( 0, 0, 1),
-    ( 0, 0,-1),
-]
-
-noisen = noise.SimplexNoise(seed=int(time.time()))
-
-
-def normalize(position):
-    """ Accepts `position` of arbitrary precision and returns the block
-    containing that position.
-
-    Parameters
-    ----------
-    position : tuple of len 3
-
-    Returns
-    -------
-    block_position : tuple of ints of len 3
-
-    """
-    x, y, z = position
-    x, y, z = (int(round(x)), int(round(y)), int(round(z)))
-    return (x, y, z)
-
-
-def sectorize(position):
-    """ Returns a tuple representing the sector for the given `position`.
-
-    Parameters
-    ----------
-    position : tuple of len 3
-
-    Returns
-    -------
-    sector : tuple of len 3
-
-    """
-    x, y, z = normalize(position)
-    x, y, z = x / SECTOR_SIZE, y / SECTOR_SIZE, z / SECTOR_SIZE
-    return (x*SECTOR_SIZE, 0, z*SECTOR_SIZE)
-
-
-class Sector(object):
-    def __init__(self,position,group,model,shown=True):
-        self.position = position[0],-40,position[2]
-        self.group = group
-        self.model = model
-        # A Batch is a collection of vertex lists for batched rendering.
-        self.batch = pyglet.graphics.Batch()
-        self.blocks = numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT,SECTOR_SIZE),dtype='u2')
-        self.shown = shown
-        # Mapping from position to a pyglet `VertextList` for all shown blocks.
-        self._shown = {}
-
-    def __getitem__(self, position):
-        position = normalize(position)
-        pos = tuple(position - numpy.array(self.position))
-        return self.blocks[pos[0],pos[1],pos[2]]
-
-    def __setitem__(self, position, value):
-        position = normalize(position)
-        pos = tuple(position - numpy.array(self.position))
-        self.blocks[pos[0],pos[1],pos[2]] = value
-        
-    def grid(self):
-        grid = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
-        sh = grid.shape
-        grid = grid.reshape((sh[0]*sh[1]*sh[2],3))
-        grid += numpy.array(self.position)
-        return grid
-
-    def __iter__(self):
-        grid = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
-        sh = grid.shape
-        grid = grid.reshape((sh[0]*sh[1]*sh[2],3))
-        grid += numpy.array(self.position)
-        #grid = grid[self.blocks.reshape((sh[0]*sh[1]*sh[2]))>0]
-        for m in grid:
-            yield m[0],m[1],m[2]
-    
-    def add_block(self, position, texture, immediate=True):
-        """ Add a block with the given `texture` and `position` to the world.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to add.
-        texture : list of len 3
-            The coordinates of the texture squares. Use `tex_coords()` to
-            generate.
-        immediate : bool
-            Whether or not to draw the block immediately.
-
-        """
-        position = normalize(position)
-        if self[position] != 0:
-            self.remove_block(position, immediate)
-        self[position] = texture
-        if immediate:
-            if self.model.exposed(position):
-                self.show_block(position)
-                self.model.check_neighbors(position)
-
-    def edge_blocks(self,dx=0,dz=0):
-        pos = self.position
-        try:
-            s=self.model.sectors[sectorize((pos[0]+dx*SECTOR_SIZE,pos[1],pos[2]+dz*SECTOR_SIZE))]
-        except KeyError:
-            s=None
-        if s is not None:
-            if dx>0:
-                return s.blocks[0,:,:]==0
-            elif dx<0:
-                return s.blocks[-1,:,:]==0
-            elif dz>0:
-                return s.blocks[:,:,0]==0
-            elif dz<0:
-                return s.blocks[:,:,-1]==0
-        else:
-            if dx>0:
-                return numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE),dtype=bool)
-            elif dx<0:
-                return numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE),dtype=bool)
-            elif dz>0:
-                return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
-            elif dz<0:
-                return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
-                
-            
-
-    def check_show(self):
-        solid = self.blocks>0
-        exposed = numpy.zeros(solid.shape,dtype=bool)
-        exposed[0,:,:] = self.edge_blocks(dx=-1)
-        exposed[-1,:,:] = self.edge_blocks(dx=1)
-        exposed[:,:,0] = self.edge_blocks(dz=-1)
-        exposed[:,:,-1] = self.edge_blocks(dz=1)
-        exposed[1:,:,:] |= ~solid[:-1,:,:]
-        exposed[:-1,:,:] |= ~solid[1:,:,:]
-        exposed[:,1:,:] |= ~solid[:,:-1,:]
-        exposed[:,:-1,:] |= ~solid[:,1:,:]
-        exposed[:,:,1:] |= ~solid[:,:,:-1]
-        exposed[:,:,:-1] |= ~solid[:,:,1:]
-        exposed = exposed*solid
-        sh = exposed.shape
-        exposed = exposed.swapaxes(0,2).reshape(sh[0]*sh[1]*sh[2])
-        pos = self.grid()[exposed>0]
-        for p in pos:
-            self.show_block(p)
-
-    def remove_block(self, position, immediate=True):
-        """ Remove the block at the given `position`.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to remove.
-        immediate : bool
-            Whether or not to immediately remove block from canvas.
-
-        """
-        position = normalize(position)
-        self.hide_block(position)
-        self[position] = 0
-        self.model.check_neighbors(position)
-
-    def show_block(self, position, immediate=True):
-        """ Show the block at the given `position`. This method assumes the
-        block has already been added with add_block()
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to show.
-        immediate : bool
-            Whether or not to show the block immediately.
-
-        """
-        x, y, z = position
-        if (x,y,z) in self._shown:
-            return
-        texture = BLOCKS[self[position]]
-        vertex_data = cube_vertices(int(x), int(y), int(z), 0.5)
-        texture_data = list(texture)
-        # create vertex list
-        # FIXME Maybe `add_indexed()` should be used instead
-        self._shown[(x,y,z)] = self.batch.add(24, GL_QUADS, self.group,
-            ('v3f/static', vertex_data),
-            ('t2f/static', texture_data))
-
-    def hide_block(self, position, immediate=True):
-        """ Hide the block at the given `position`. Hiding does not remove the
-        block from the world.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to hide.
-        immediate : bool
-            Whether or not to immediately remove the block from the canvas.
-
-        """
-        if position not in self._shown:
-            return
-        self._shown.pop(position).delete()
-#        try:
-#            self._shown.pop(position).delete()
-#        except:
-#            pass
-
-    def _initialize(self):
-        """ Initialize the world by placing all the blocks.
-
-        """
-        N = SECTOR_SIZE
-        STEP = 40.0
-        Z = numpy.mgrid[0:N,0:N].T/STEP
-        shape = Z.shape
-        Z = Z.reshape((shape[0]*shape[1],2))
-
-        N1=noisen.noise(Z + numpy.array([self.position[0],self.position[2]])/STEP)
-        #N2=noisen(Z, seed = 32424)
-        #N1 = ((N1 - N1.min())/(N1.max() - N1.min()))*20
-        N1 = N1.reshape((SECTOR_SIZE,SECTOR_SIZE))
-        #N2 = (N2 - N2.min())/(N2.max() - N2.min())*30
-        Z = Z*STEP + numpy.array([self.position[0],self.position[2]])
-        b = numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE,SECTOR_SIZE),dtype='u2')
-        for y in range(SECTOR_HEIGHT):
-            b[y] = (y-40<N1-2)*STONE + (((y-40>=N1-2) & (y-40<N1))*GRASS)
-        self.blocks = b.swapaxes(0,1).swapaxes(0,2)
-
-
-class Model(object):
-
-    def __init__(self):
-
-        # A TextureGroup manages an OpenGL texture.
-        self.group = TextureGroup(image.load(TEXTURE_PATH).get_texture())
-
-        # The world is stored in sector chunks.
-        self.sectors = {}
-
-        # Simple function queue implementation. The queue is populated with
-        # _show_block() and _hide_block() calls
-#        self.queue = deque()
-
-	d = range(-128,129,SECTOR_SIZE)
-        for pos in itertools.product(d,(0,),d):
-            s=Sector(pos, self.group, self)
-#            if pos!=(0,0,0):
-#                s.shown=False
-            self.sectors[sectorize(pos)] = s
-            s._initialize()
-        for s in self.sectors:
-            self.sectors[s].check_show()
-
-
-    def __getitem__(self, position):
-        try:
-            return self.sectors[sectorize(position)][position]
-        except:
-            return None
-
-    def draw(self):
-        for s in self.sectors:
-            if self.sectors[s].shown:
-                self.sectors[s].batch.draw()
-
-
-    def hit_test(self, position, vector, max_distance=8):
-        """ Line of sight search from current position. If a block is
-        intersected it is returned, along with the block previously in the line
-        of sight. If no block is found, return None, None.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position to check visibility from.
-        vector : tuple of len 3
-            The line of sight vector.
-        max_distance : int
-            How many blocks away to search for a hit.
-
-        """
-        m = 8
-        x, y, z = position
-        dx, dy, dz = vector
-        previous = None
-        for _ in xrange(max_distance * m):
-            key = normalize((x, y, z))
-            if key != previous:
-                b = self[key]
-                if b != 0 and b is not None:
-                    return key, previous
-            previous = key
-            x, y, z = x + dx / m, y + dy / m, z + dz / m
-        return None, None
-
-    def exposed(self, position):
-        """ Returns False is given `position` is surrounded on all 6 sides by
-        blocks, True otherwise.
-
-        """
-        x, y, z = position
-        for dx, dy, dz in FACES:
-            b = self[normalize((x + dx, y + dy, z + dz))]
-            if b == 0:
-                return True
-        return False
-
-    def check_neighbors(self, position):
-        """ Check all blocks surrounding `position` and ensure their visual
-        state is current. This means hiding blocks that are not exposed and
-        ensuring that all exposed blocks are shown. Usually used after a block
-        is added or removed.
-
-        """
-        x, y, z = position
-        for dx, dy, dz in FACES:
-            key = (x + dx, y + dy, z + dz)
-            b = self[key]
-            if b==0 or b is None:
-                continue
-            if self.exposed(key):
-                self.sectors[sectorize(key)].show_block(key)
-            else:
-                self.sectors[sectorize(key)].hide_block(key)
-
+# local module imports
+import world
+import util
+from config import DIST, TICKS_PER_SEC, FLYING_SPEED, GRAVITY, JUMP_SPEED, \
+        MAX_JUMP_HEIGHT, PLAYER_HEIGHT, TERMINAL_VELOCITY, TICKS_PER_SEC, \
+        WALKING_SPEED
+from blocks import BRICK, GRASS, SAND, STONE
 
 
 class Window(pyglet.window.Window):
@@ -474,7 +75,7 @@ class Window(pyglet.window.Window):
             key._6, key._7, key._8, key._9, key._0]
 
         # Instance of the model that handles the world.
-        self.model = Model()
+        self.model = world.Model()
 
         # The label that is displayed in the top left of the canvas.
         self.label = pyglet.text.Label('', font_name='Arial', font_size=18,
@@ -560,7 +161,7 @@ class Window(pyglet.window.Window):
 
         """
 #        self.model.process_queue()
-#        sector = sectorize(self.position)
+#        sector = util.sectorize(self.position)
 #        if sector != self.sector:
 #            self.model.change_sectors(self.sector, sector)
 #            if self.sector is None:
@@ -623,8 +224,8 @@ class Window(pyglet.window.Window):
         # tall grass. If >= .5, you'll fall through the ground.
         pad = 0.1
         p = list(position)
-        np = normalize(position)
-        for face in FACES:  # check all surrounding blocks
+        np = util.normalize(position)
+        for face in util.FACES:  # check all surrounding blocks
             for i in xrange(3):  # check each dimension independently
                 if not face[i]:
                     continue
@@ -636,7 +237,7 @@ class Window(pyglet.window.Window):
                     op = list(np)
                     op[1] -= dy
                     op[i] += face[i]
-                    b = self.model[normalize(op)]
+                    b = self.model[util.normalize(op)]
                     if b==0 or b is None:
                         continue
                     p[i] -= (d - pad) * face[i]
@@ -671,13 +272,13 @@ class Window(pyglet.window.Window):
                     ((button == mouse.LEFT) and (modifiers & key.MOD_CTRL)):
                 # ON OSX, control + left click = right click.
                 if previous:
-                    self.model.sectors[sectorize(previous)].add_block(previous, self.block)
+                    self.model.sectors[util.sectorize(previous)].add_block(previous, self.block)
 #
 #                    self.model.add_block(previous, self.block)
             elif button == pyglet.window.mouse.LEFT and block:
-                texture = self.model[block]
-                if texture != STONE:
-                    self.model.sectors[sectorize(block)].remove_block(block)
+#                texture = self.model[block]
+#                if texture != STONE:
+                self.model.sectors[util.sectorize(block)].remove_block(block)
         else:
             self.set_exclusive_mouse(True)
 
@@ -772,31 +373,45 @@ class Window(pyglet.window.Window):
 
         """
         width, height = self.get_size()
-        glDisable(GL_DEPTH_TEST)
-        glViewport(0, 0, width, height)
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        glOrtho(0, width, 0, height, -1, 1)
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
+        gl.glDisable(gl.GL_DEPTH_TEST)
+        gl.glViewport(0, 0, width, height)
+        gl.glMatrixMode(gl.GL_PROJECTION)
+        gl.glLoadIdentity()
+        gl.glOrtho(0, width, 0, height, -1, 1)
+        gl.glMatrixMode(gl.GL_MODELVIEW)
+        gl.glLoadIdentity()
 
     def set_3d(self):
         """ Configure OpenGL to draw in 3d.
 
         """
         width, height = self.get_size()
-        glEnable(GL_DEPTH_TEST)
-        glViewport(0, 0, width, height)
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluPerspective(65.0, width / float(height), 0.1, 200.0)
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
+        gl.glEnable(gl.GL_DEPTH_TEST)
+        gl.glViewport(0, 0, width, height)
+        gl.glMatrixMode(gl.GL_PROJECTION)
+        gl.glLoadIdentity()
+        gl.gluPerspective(65.0, width / float(height), 0.1, DIST)
+        gl.glMatrixMode(gl.GL_MODELVIEW)
+        gl.glLoadIdentity()
         x, y = self.rotation
-        glRotatef(x, 0, 1, 0)
-        glRotatef(-y, math.cos(math.radians(x)), 0, math.sin(math.radians(x)))
+        gl.glRotatef(x, 0, 1, 0)
+        gl.glRotatef(-y, math.cos(math.radians(x)), 0, math.sin(math.radians(x)))
         x, y, z = self.position
-        glTranslatef(-x, -y, -z)
+        gl.glTranslatef(-x, -y, -z)
+
+    def get_frustum_circle(self):
+        x,y = self.rotation
+        dx = math.cos(math.radians(x - 90))
+        dz = math.sin(math.radians(x - 90))
+
+        c = [0,2]
+        vec = numpy.array([dx,dz])
+        ovec = numpy.array([-dz,dx])
+        pos = numpy.array([x for x in self.position])[c]
+        center = pos + vec*DIST/2
+        far_corner = pos + vec*DIST + ovec*DIST*numpy.tan(65.0/180.0 * numpy.pi)/2
+        rad = ((center-far_corner)**2).sum()**0.5/2
+        return center,rad
 
     def on_draw(self):
         """ Called by pyglet to draw the canvas.
@@ -804,8 +419,8 @@ class Window(pyglet.window.Window):
         """
         self.clear()
         self.set_3d()
-        glColor3d(1, 1, 1)
-        self.model.draw()
+        gl.glColor3d(1, 1, 1)
+        self.model.draw(self.position,self.get_frustum_circle())
         self.draw_focused_block()
         self.set_2d()
         self.draw_label()
@@ -820,11 +435,13 @@ class Window(pyglet.window.Window):
         block = self.model.hit_test(self.position, vector)[0]
         if block:
             x, y, z = block
-            vertex_data = cube_vertices(x, y, z, 0.51)
-            glColor3d(0, 0, 0)
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-            pyglet.graphics.draw(24, GL_QUADS, ('v3f/static', vertex_data))
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+            vertex_data=[]
+            for v in util.cube_vertices(x, y, z, 0.51):
+                vertex_data.extend(v)
+            gl.glColor3d(0, 0, 0)
+            gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
+            pyglet.graphics.draw(24, gl.GL_QUADS, ('v3f/static', vertex_data))
+            gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
 
     def draw_label(self):
         """ Draw the label in the top left of the screen.
@@ -840,8 +457,8 @@ class Window(pyglet.window.Window):
         """ Draw the crosshairs in the center of the screen.
 
         """
-        glColor3d(0, 0, 0)
-        self.reticle.draw(GL_LINES)
+        gl.glColor3d(0, 0, 0)
+        self.reticle.draw(gl.GL_LINES)
 
 
 def setup_fog():
@@ -850,17 +467,17 @@ def setup_fog():
     """
     # Enable fog. Fog "blends a fog color with each rasterized pixel fragment's
     # post-texturing color."
-    glEnable(GL_FOG)
+    gl.glEnable(gl.GL_FOG)
     # Set the fog color.
-    glFogfv(GL_FOG_COLOR, (GLfloat * 4)(0.5, 0.69, 1.0, 1))
+    gl.glFogfv(gl.GL_FOG_COLOR, (gl.GLfloat * 4)(0.5, 0.69, 1.0, 1))
     # Say we have no preference between rendering speed and quality.
-    glHint(GL_FOG_HINT, GL_DONT_CARE)
+    gl.glHint(gl.GL_FOG_HINT, gl.GL_DONT_CARE)
     # Specify the equation used to compute the blending factor.
-    glFogi(GL_FOG_MODE, GL_LINEAR)
+    gl.glFogi(gl.GL_FOG_MODE, gl.GL_LINEAR)
     # How close and far away fog starts and ends. The closer the start and end,
     # the denser the fog in the fog range.
-    glFogf(GL_FOG_START, 150.0)
-    glFogf(GL_FOG_END, 200.0)
+    gl.glFogf(gl.GL_FOG_START, 0.75*DIST)
+    gl.glFogf(gl.GL_FOG_END, DIST)
 
 
 
@@ -869,17 +486,17 @@ def setup():
 
     """
     # Set the color of "clear", i.e. the sky, in rgba.
-    glClearColor(0.5, 0.69, 1.0, 1)
+    gl.glClearColor(0.5, 0.69, 1.0, 1)
     # Enable culling (not rendering) of back-facing facets -- facets that aren't
     # visible to you.
-    glEnable(GL_CULL_FACE)
+    gl.glEnable(gl.GL_CULL_FACE)
     # Set the texture minification/magnification function to GL_NEAREST (nearest
     # in Manhattan distance) to the specified texture coordinates. GL_NEAREST
     # "is generally faster than GL_LINEAR, but it can produce textured images
     # with sharper edges because the transition between texture elements is not
     # as smooth."
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+    gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
+    gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
     setup_fog()
 
 
