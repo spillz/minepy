@@ -109,7 +109,6 @@ def numpy__setitem__(self, index, value):
     if isinstance(value, numpy.ndarray) and isinstance(index, slice) \
           and index.start is None and index.stop is None and index.step is None:
         arr = numpy.ctypeslib.as_array(self.region.array)
-        t = time.time()
         for i in range(self.count):
             arr[i::self.stride] = value[i::self.count]
         return
