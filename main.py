@@ -32,7 +32,7 @@ class Window(pyglet.window.Window):
         self.exclusive = False
 
         # When flying gravity has no effect and speed is increased.
-        self.flying = False
+        self.flying = True
 
         # Strafing is moving lateral to the direction you are facing,
         # e.g. moving to the left or right while continuing to face forward.
@@ -161,12 +161,11 @@ class Window(pyglet.window.Window):
 
         """
 #        self.model.process_queue()
-#        sector = util.sectorize(self.position)
-#        if sector != self.sector:
-#            self.model.change_sectors(self.sector, sector)
-#            if self.sector is None:
-#                self.model.process_entire_queue()
-#            self.sector = sector
+        sector = util.sectorize(self.position)
+        if sector != self.sector:
+            print 'changing sectors',self.sector,'to',sector
+            self.model.change_sectors(self.sector, sector)
+            self.sector = sector
         m = 20
         dt = min(dt, 0.2)
         for _ in xrange(m):
@@ -501,9 +500,9 @@ def setup():
 
 
 def main():
-    window = Window(width=800, height=600, caption='Pyglet', resizable=True)
+    window = Window(width=300, height=200, caption='Pyglet', resizable=True)
     # Hide the mouse cursor and prevent the mouse from leaving the window.
-    window.set_exclusive_mouse(True)
+    window.set_exclusive_mouse(False)
     setup()
     pyglet.app.run()
 

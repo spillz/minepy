@@ -1,12 +1,13 @@
 import math
 
-DIST = 80
+DIST = 128
 
 TICKS_PER_SEC = 60
 
 # Size of sectors used to ease block loading.
 SECTOR_SIZE = 32 #width and depth
 SECTOR_HEIGHT = 256 #height of world
+LOADED_SECTORS = 7 #number of sections in (x,z) directions to load sectors for
 
 WALKING_SPEED = 5
 FLYING_SPEED = 15
