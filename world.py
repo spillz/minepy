@@ -89,6 +89,30 @@ class Sector(object):
         self[position] = texture
         self.update_block(position)
         self.model.check_neighbors(position)
+    
+    def update_edge(self, dx, dz, sector):
+        if self.exposed is None:
+            return        
+        if dx>0:
+            b0 = (self.blocks[-1,:,:]!=0)&(sector.blocks[0,:,:]==0)
+            self.exposed[-1,:,:] |= b0 << 4 #right edge
+            self.invalidate()
+        elif dx<0:
+            b0 = (self.blocks[0,:,:]!=0)&(sector.blocks[-1,:,:]==0)
+            self.exposed[0,:,:] |= b0 << 5 #left edge
+            self.invalidate()
+        elif dz>0:
+            b0 = (self.blocks[:,:,-1]!=0)&(sector.blocks[:,:,0]==0)
+            self.exposed[:,:,-1] |= b0 << 3 #front edge
+            self.invalidate()
+        elif dz<0:
+            b0 = (self.blocks[:,:,0]!=0)&(sector.blocks[:,:,-1]==0)
+            self.exposed[:,:,0] |= b0 << 2 #back edge
+            self.invalidate()
+
+    def invalidate(self):
+        self.invalidate_vt = True
+        self.vt_data = None
 
     def edge_blocks(self,dx=0,dz=0):
         pos = self.position
@@ -114,6 +138,7 @@ class Sector(object):
                 return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
             elif dz<0:
                 return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
+    
     def calc_exposed_faces(self):
         air = self.blocks == 0
         exposed = numpy.zeros(air.shape,dtype=numpy.uint8)
@@ -195,7 +220,7 @@ class Sector(object):
                 i+=1
         if exposed != self.exposed[x,y,z]:
             self.exposed[x,y,z] = exposed
-            self.invalidate_vt = True
+            self.invalidate()
 
     def _initialize(self):
         """ Initialize the world by placing all the blocks.
@@ -262,6 +287,16 @@ class Model(object):
                     continue
                 if self.sectors[s].shown:
                     self.sectors[s].draw()
+        
+    def neighbor_sectors(self, pos):
+        """
+        return a tuple (dx, dz, sector) of currently loaded neighbors to the sector at pos
+        """
+        pos = sectorize(pos)
+        for x in ((-1,0),(1,0),(0,-1),(0,1)):
+            npos = (pos[0]+x[0]*SECTOR_SIZE,0,pos[2]+x[1]*SECTOR_SIZE)
+            if npos in self.sectors:
+                yield x[0],x[1],self.sectors[npos]
 
     def change_sectors(self, old, new):
         """
@@ -291,9 +326,12 @@ class Model(object):
                 s.calc_exposed_faces()
                 with self.sector_lock:
                     self.sectors[pos] = s
-                    s.invalidate_vt = True
-                    s.check_show(add_to_batch = False)
-                    s.shown = True
+                s.invalidate()
+                s.check_show(add_to_batch = False)
+                s.shown = True
+                with self.sector_lock:
+                    for dx,dz,ns in self.neighbor_sectors(pos):
+                        ns.update_edge(-dx,-dz,s)
                 time.sleep(dt)
         #TODO: should probably lock the mutex for this
         removes = 0
