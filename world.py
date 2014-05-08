@@ -16,6 +16,10 @@ from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS
 from util import normalize, sectorize, FACES, cube_v, cube_v2, noisen
 from blocks import BLOCKS, BRICK, GRASS, SAND, STONE, TEXTURE_PATH
 
+SECTOR_GRID = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
+SH = SECTOR_GRID.shape
+SECTOR_GRID = SECTOR_GRID.reshape((SH[0]*SH[1]*SH[2],3))
+
 
 class Sector(object):
     def __init__(self,position,group,model,shown=True):
@@ -54,10 +58,7 @@ class Sector(object):
         self.blocks[pos[0],pos[1],pos[2]] = value
         
     def grid(self):
-        grid = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
-        sh = grid.shape
-        grid = grid.reshape((sh[0]*sh[1]*sh[2],3))
-        grid += numpy.array(self.position)
+        grid = SECTOR_GRID + numpy.array(self.position)
         return grid
 
     def __iter__(self):
@@ -140,6 +141,8 @@ class Sector(object):
                 return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
     
     def calc_exposed_faces(self):
+        #TODO: The 3D bitwise ops are slow
+        t = time.time()
         air = self.blocks == 0
         exposed = numpy.zeros(air.shape,dtype=numpy.uint8)
         exposed[0,:,:] |= self.edge_blocks(dx=-1)<<5 #left edge
@@ -163,16 +166,14 @@ class Sector(object):
         if self.vt_data == None:
             sh = self.exposed.shape
             exposed = self.exposed.swapaxes(0,2).reshape(sh[0]*sh[1]*sh[2])
-            pos = self.grid()[exposed>0]
-            exposed = exposed[exposed>0]
+            egz = exposed>0
+            pos = SECTOR_GRID[egz] + self.position
+            exposed = exposed[egz]
             exposed = numpy.unpackbits(exposed[:,numpy.newaxis],axis=1)
             exposed = numpy.array(exposed,dtype=bool)
             exposed = exposed[:,:6]
-
             texture_data = BLOCKS[self[pos]]
             vertex_data = cube_v2(numpy.array(pos), 0.5)
-            texture_data = numpy.array(texture_data)
-            vertex_data = numpy.array(vertex_data)
 
             v=vertex_data[exposed].ravel()
             t=texture_data[exposed].ravel()
@@ -280,6 +281,7 @@ class Model(object):
             return None
 
     def draw(self, position, (center, radius)):
+        #t = time.time()
         with self.sector_lock:
             for s in self.sectors:
                 spos = numpy.array([s[0], s[2]])+SECTOR_SIZE/2
@@ -287,6 +289,7 @@ class Model(object):
                     continue
                 if self.sectors[s].shown:
                     self.sectors[s].draw()
+        #print 'draw',time.time() -t 
         
     def neighbor_sectors(self, pos):
         """
@@ -319,6 +322,7 @@ class Model(object):
             pos = sectorize(pos)
             sectors_pos.add(pos)
             if pos not in old_sectors_pos:
+                t = time.time()
                 adds += 1
                 s = Sector(pos,self.group,self,False)
                 s._initialize()
@@ -333,6 +337,7 @@ class Model(object):
                     for dx,dz,ns in self.neighbor_sectors(pos):
                         ns.update_edge(-dx,-dz,s)
                 time.sleep(dt)
+                print 'sector',pos,'took',time.time()-t
         #TODO: should probably lock the mutex for this
         removes = 0
         with self.sector_lock:
