@@ -14,7 +14,7 @@ import pyglet.gl as gl
 # local imports
 from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS
 from util import normalize, sectorize, FACES, cube_v, cube_v2, noisen
-from blocks import BLOCKS, BRICK, GRASS, SAND, STONE, TEXTURE_PATH
+from blocks import BLOCKS, BLOCK_COLORS, BLOCK_NORMALS, BRICK, GRASS, SAND, STONE, TEXTURE_PATH
 
 SECTOR_GRID = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
 SH = SECTOR_GRID.shape
@@ -172,19 +172,27 @@ class Sector(object):
             exposed = numpy.unpackbits(exposed[:,numpy.newaxis],axis=1)
             exposed = numpy.array(exposed,dtype=bool)
             exposed = exposed[:,:6]
-            texture_data = BLOCKS[self[pos]]
+            b = self[pos]
+            texture_data = BLOCKS[b]
+            color_data = BLOCK_COLORS[b]
+            normal_data = numpy.tile(BLOCK_NORMALS,(len(b),1,4))
             vertex_data = cube_v2(numpy.array(pos), 0.5)
+            
+            v = vertex_data[exposed].ravel()
+            t = texture_data[exposed].ravel()
+            n = normal_data[exposed].ravel()
+            c = color_data[exposed].ravel()
 
-            v=vertex_data[exposed].ravel()
-            t=texture_data[exposed].ravel()
             count = len(v)/3
-            self.vt_data = (count, v, t)
+            self.vt_data = (count, v, t, n, c)
 
         if add_to_batch:
-            (count, v, t) = self.vt_data
+            (count, v, t, n, c) = self.vt_data
             self.vt = self.batch.add(count, gl.GL_QUADS, self.group,
                 ('v3f/static', v),
-                ('t2f/static', t))
+                ('t2f/static', t),
+                ('n3f/static', n),
+                ('c3B/static', c))
             self.vt_data = None
 
     def remove_block(self, position, immediate=True):

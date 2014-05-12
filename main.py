@@ -9,6 +9,9 @@ from pyglet.graphics import TextureGroup
 from pyglet.window import key, mouse
 import pyglet.gl as gl
 
+GLfloat3 = gl.GLfloat*3
+GLfloat4 = gl.GLfloat*4
+
 # standard lib imports
 from collections import deque
 import numpy
@@ -20,7 +23,7 @@ import util
 from config import DIST, TICKS_PER_SEC, FLYING_SPEED, GRAVITY, JUMP_SPEED, \
         MAX_JUMP_HEIGHT, PLAYER_HEIGHT, TERMINAL_VELOCITY, TICKS_PER_SEC, \
         WALKING_SPEED
-from blocks import BRICK, GRASS, SAND, STONE
+from blocks import BRICK, GRASS, SAND, STONE, WOOD, PLANK
 
 
 class Window(pyglet.window.Window):
@@ -64,7 +67,7 @@ class Window(pyglet.window.Window):
         self.dy = 0
 
         # A list of blocks the player can place. Hit num keys to cycle.
-        self.inventory = [BRICK, GRASS, SAND]
+        self.inventory = [BRICK, GRASS, SAND, STONE, WOOD, PLANK]
 
         # The current block the user can place. Hit num keys to cycle.
         self.block = self.inventory[0]
@@ -385,19 +388,35 @@ class Window(pyglet.window.Window):
 
         """
         width, height = self.get_size()
+
         gl.glEnable(gl.GL_DEPTH_TEST)
+
         gl.glViewport(0, 0, width, height)
         gl.glMatrixMode(gl.GL_PROJECTION)
         gl.glLoadIdentity()
         gl.gluPerspective(65.0, width / float(height), 0.1, DIST)
         gl.glMatrixMode(gl.GL_MODELVIEW)
         gl.glLoadIdentity()
+
         x, y = self.rotation
         gl.glRotatef(x, 0, 1, 0)
         gl.glRotatef(-y, math.cos(math.radians(x)), 0, math.sin(math.radians(x)))
         x, y, z = self.position
         gl.glTranslatef(-x, -y, -z)
 
+        gl.glEnable(gl.GL_LIGHTING)
+        gl.glLightModelfv(gl.GL_LIGHT_MODEL_AMBIENT, GLfloat4(0.05,0.05,0.05,1.0))
+        gl.glEnable(gl.GL_COLOR_MATERIAL)
+        gl.glColorMaterial(gl.GL_FRONT, gl.GL_AMBIENT_AND_DIFFUSE)
+        #gl.glLightfv(gl.GL_LIGHT1,gl.GL_SPOT_DIRECTION, GLfloat3(0,0,-1))
+        gl.glLightfv(gl.GL_LIGHT1, gl.GL_AMBIENT, GLfloat4(0.5,0.5,0.5,1.0))
+        gl.glLightfv(gl.GL_LIGHT1, gl.GL_DIFFUSE, GLfloat4(1.0,1.0,1.0,1.0))
+        gl.glLightfv(gl.GL_LIGHT1, gl.GL_POSITION, GLfloat4(0.5,1.0,0.5,0.0))
+        #gl.glLightfv(gl.GL_LIGHT0,gl.GL_SPECULAR, GLfloat4(1,1,1,1))
+        gl.glDisable(gl.GL_LIGHT0)
+        gl.glEnable(gl.GL_LIGHT1)
+
+        
     def get_frustum_circle(self):
         x,y = self.rotation
         dx = math.cos(math.radians(x - 90))
@@ -496,6 +515,7 @@ def setup():
     # as smooth."
     gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
     gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
+    gl.glTexEnvi(gl.GL_TEXTURE_ENV, gl.GL_TEXTURE_ENV_MODE, gl.GL_MODULATE)
     setup_fog()
 
 
