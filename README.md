@@ -1,42 +1,24 @@
-# Minecraft
+# minepy
 
-Simple Minecraft-inspired demo written in Python and Pyglet.
+A fork of fogleman's simple Minecraft-inspired demo written in Python.
 
-http://www.youtube.com/watch?v=kC3lwK631X8
+https://github.com/fogleman/minecraft
 
-**Like this project?**
-
-You might also like my other Minecraft clone written in C using modern OpenGL (GL shader language). It performs better, has better terrain generation and saves state to a sqlite database. See here:
-
-https://github.com/fogleman/Craft
 
 ## Goals and Vision
 
-I would like to see this project turn into an educational tool. Kids love Minecraft and Python is a great first language.
-This is a good opportunity to get children excited about programming.
+To be a simple engine for building minecraft like games using python
 
-The code should become well commented and more easily configurable. It should be easy to make some simple changes
-and see the results quickly.
+## Technical
 
-I think it would be great to turn the project into more of a library / API... a Python package that you import and then
-use / configure to setup a world and run it. Something along these lines...
-
-    import mc
-    
-    world = mc.World(...)
-    world.set_block(x, y, z, mc.DIRT)
-    mc.run(world)
-
-The API could contain functionality for the following:
-
-- Easily configurable parameters like gravity, jump velocity, walking speed, etc.
-- Hooks for terrain generation.
+Uses pyglet and numpy.
 
 ## How to Run
 
     pip install pyglet
-    git clone https://github.com/fogleman/Minecraft.git
-    cd Minecraft
+    pip install numpy
+    git clone https://github.com/spillz/minepy.git
+    cd minepy
     python main.py
 
 ### Mac
@@ -83,13 +65,36 @@ See the [wiki](https://github.com/fogleman/Minecraft/wiki) for this project to i
 
 ### Building
 
-- Selecting type of block to create:
-    - 1: brick
+# Use the number keys to select the type of block to create:
+    - 1: dirt with grass
     - 2: grass
     - 3: sand
+    - etc
 - Mouse left-click: remove block
 - Mouse right-click: create block
 
 ### Quitting
 
 - ESC: release mouse, then close window
+
+# Licenses
+
+#Code - GPLv3
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Texture Pack - Faithful Venom v1.5
+
+	Faith Venom is licensed CC BY-NC-SA 3.0
+	http://minecraft.curseforge.com/texture-packs/51244-faithfulvenom-32x-32x
