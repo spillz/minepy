@@ -1,19 +1,28 @@
-# minepy
+minepy
+=======
+
+.. image:: screenshots/minepy.png
+   :align: center
+   :scale: 50 %
+
 
 A fork of fogleman's simple Minecraft-inspired demo written in Python.
 
 https://github.com/fogleman/minecraft
 
 
-## Goals and Vision
+Goals and Vision
+==================
 
 To be a simple engine for building minecraft like games using python
 
-## Technical
+Technical
+-----------
 
-Uses pyglet and numpy.
+Uses pyglet to render the graphics and numpy for its powerful and fast arrays.
 
-## How to Run
+How to Run
+==========
 
     pip install pyglet
     pip install numpy
@@ -21,7 +30,8 @@ Uses pyglet and numpy.
     cd minepy
     python main.py
 
-### Mac
+Mac
+----
 
 On Mac OS X, you may have an issue with running Pyglet in 64-bit mode. Try running Python in 32-bit mode first:
 
@@ -29,15 +39,16 @@ On Mac OS X, you may have an issue with running Pyglet in 64-bit mode. Try runni
 
 If that doesn't work, set Python to run in 32-bit mode by default:
 
-    defaults write com.apple.versioner.python Prefer-32-Bit -bool yes 
+    defaults write com.apple.versioner.python Prefer-32-Bit -bool yes
 
 This assumes you are using the OS X default Python.  Works on Lion 10.7 with the default Python 2.7, and may work on other versions too.  Please raise an issue if not.
-    
-Or try Pyglet 1.2 alpha, which supports 64-bit mode:  
 
-    pip install https://pyglet.googlecode.com/files/pyglet-1.2alpha1.tar.gz 
+Or try Pyglet 1.2 alpha, which supports 64-bit mode:
 
-### If you don't have pip or git
+    pip install https://pyglet.googlecode.com/files/pyglet-1.2alpha1.tar.gz
+
+If you don't have pip or git
+--------------------------------
 
 For pip:
 
@@ -51,9 +62,10 @@ For git:
 
 See the [wiki](https://github.com/fogleman/Minecraft/wiki) for this project to install Python, and other tips.
 
-## How to Play
+How to Play
+================
 
-### Moving
+Moving
 
 - W: forward
 - S: back
@@ -63,9 +75,9 @@ See the [wiki](https://github.com/fogleman/Minecraft/wiki) for this project to i
 - Space: jump
 - Tab: toggle flying mode
 
-### Building
+Building
 
-# Use the number keys to select the type of block to create:
+Use the number keys to select the type of block to create:
     - 1: dirt with grass
     - 2: grass
     - 3: sand
@@ -73,13 +85,14 @@ See the [wiki](https://github.com/fogleman/Minecraft/wiki) for this project to i
 - Mouse left-click: remove block
 - Mouse right-click: create block
 
-### Quitting
+Quitting
 
 - ESC: release mouse, then close window
 
-# Licenses
+Licenses
+========
 
-#Code - GPLv3
+Code - GPLv3
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -94,7 +107,7 @@ See the [wiki](https://github.com/fogleman/Minecraft/wiki) for this project to i
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# Texture Pack - Faithful Venom v1.5
+Texture Pack - Faithful Venom v1.5
 
 	Faith Venom is licensed CC BY-NC-SA 3.0
 	http://minecraft.curseforge.com/texture-packs/51244-faithfulvenom-32x-32x
