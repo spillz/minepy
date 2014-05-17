@@ -19,7 +19,18 @@ To be a simple engine for building minecraft like games using python
 Technical
 -----------
 
-Uses pyglet to render the graphics and numpy for its powerful and fast arrays.
+Uses pyglet to render the graphics and numpy for its powerful and fast array processing.
+
+Known Issues
+------------
+
+1. The simplex noise algorithm used for terrain generation is buggy -- you will see lots of vertical walls at negative coordinates
+2. When moving around you will see framerate drops because terrain generation slows down the drawing speed 
+   due to python's Global Interpreter Lock (I am working on multiprocessing version that will make the 
+   framerate more consistent on reasonably modern hardware)
+3. Lighting is very simple, no shadows or dark areas of the map yet.
+4. Nothing is saved, but I plan to save changed chunks to a level DB database
+
 
 How to Run
 ==========
