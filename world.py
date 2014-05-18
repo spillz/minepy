@@ -241,7 +241,7 @@ class Sector(object):
         shape = Z.shape
         Z = Z.reshape((shape[0]*shape[1],2))
 
-        N1=noisen.noise(Z + numpy.array([self.position[0],self.position[2]])/STEP)
+        N1=noisen.noise(Z + numpy.array([self.position[0],self.position[2]])/STEP)*30
         #N2=noisen(Z, seed = 32424)
         #N1 = ((N1 - N1.min())/(N1.max() - N1.min()))*20
         N1 = N1.reshape((SECTOR_SIZE,SECTOR_SIZE))

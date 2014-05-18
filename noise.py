@@ -44,7 +44,7 @@ p = numpy.array( [151,160,137,91,90,15,
     251,34,242,193,238,210,144,12,191,179,162,241, 81,51,145,235,249,14,239,107,
     49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127, 4,150,254,
     138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180] )
-p = numpy.random.randint(256,size=256)
+#p = numpy.random.randint(256,size=256)
 # To remove the need for index wrapping, double the permutation table length
 perm = numpy.arange(512,dtype='i2')
 perm = p[perm & 255]
@@ -61,7 +61,8 @@ G4 = (5.0-5.0**0.5)/20.0
 
 
 # returns floor of floating point array by coercing to integer
-fastfloor = lambda x:numpy.array(x,dtype='i2')
+def fastfloor(x):
+    return numpy.array(numpy.floor(x), dtype = numpy.int32)
 
 def dot(g, *v):
     s = 0
@@ -69,9 +70,6 @@ def dot(g, *v):
         s = s + g[i]*v[i]
     return s
         
-
-
-
 # 2D simplex noise
 def noise2(xin, yin): 
     # Skew the input space to determine which simplex cell we're in
@@ -94,6 +92,7 @@ def noise2(xin, yin):
     y1 = y0 - j1 + G2
     x2 = x0 - 1.0 + 2.0 * G2 # Offsets for last corner in (x,y) unskewed coords
     y2 = y0 - 1.0 + 2.0 * G2
+    
     # Work out the hashed gradient indices of the three simplex corners
     ii = i & 255
     jj = j & 255
@@ -205,6 +204,25 @@ def noise3(xin, yin, zin):
     # The result is scaled to stay just inside [-1,1]
     return 32.0*(n0 + n1 + n2 + n3)
         
+class SimplexNoise2:
+    '''
+    unused, eventually replace SimplexNoise with a more sane
+    and readable version using sine waves
+    '''
+    def __init__(self,seed=None):
+        if seed:
+            numpy.random.seed(seed)
+            p = numpy.random.randint(256,size=256)
+            # To remove the need for index wrapping, double the permutation table length
+            perm0 = numpy.arange(512,dtype='i2')
+            self.perm0 = p[perm0 & 255]
+        else:
+            self.perm0 = perm
+    
+    def noise(self, Z):
+        N = Z.shape[-1] #number of dimensions
+        N1 = N+1 # number of simplices
+        
 
 #  # N-D simplex noise, better simplex rank ordering method 2012-03-09
 class SimplexNoise:
@@ -213,10 +231,10 @@ class SimplexNoise:
             numpy.random.seed(seed)
             p = numpy.random.randint(256,size=256)
             # To remove the need for index wrapping, double the permutation table length
-            perm = numpy.arange(512,dtype='i2')
-            self.perm = p[perm & 255]
+            perm0 = numpy.arange(512,dtype='i2')
+            self.perm0 = p[perm0 & 255]
         else:
-            self.perm = perm
+            self.perm0 = perm
 
     def noise(self, Z):
         # Skew the (x,y,z,w) space to determine which cell of 24 simplices we're in
@@ -234,7 +252,7 @@ class SimplexNoise:
 
         # Use magnitude ordering to determine the simplices that the point z0 is located in
         rank = numpy.zeros(Z.shape)
-        for k,l in itertools.combinations(range(N),2):
+        for l,k in itertools.combinations(range(N),2):
             rank[:,k] += z0[:,k]>=z0[:,l]
             rank[:,l] += z0[:,k]<z0[:,l]
 
@@ -243,73 +261,31 @@ class SimplexNoise:
         ind = rank>= N - b
         # zk contains the skewed locations of the N+1 simplices
         zk = z0 - ind + 1.0 * b * Gn
+        
         indi = (ind) % 255 + i
-        # the gradients that are randomly assign to each simplex
+        # the gradients are randomly assigned to each simplex
         grad = ((0,-1,1),)*N
         grad = numpy.array(list(itertools.product(*grad))[1:])
         grad = grad[numpy.abs(grad).sum(-1)>=N-1]
 
         gik = 0
         for x in range(N-1,-1,-1):
-            gik = self.perm[indi[:,:,x] + gik]
+            gik = self.perm0[indi[:,:,x] + gik]
         gik = gik%(grad.shape[0])#(2**(N+1))
         # Calculate the contribution from the simplices
-        tk = 1.0 - (zk*zk).sum(-1)
+        tk = 0.5 - (zk*zk).sum(-1)
         tp = tk>=0
         tk = tp * tk * tk
         nk = tp * tk * tk * (grad[gik]*zk).sum(-1)
+
         # Sum up and scale the result to cover the range [-1,1]
-        return (70) * nk.sum(0) #was return (2**(N+1)-N-1) * nk.sum(-1)
+        return nk.sum(0) * (2**6 )#(2**(N+1)-N-1)
 
 
 
 def noisen(Z, seed=None):
-    # Skew the (x,y,z,w) space to determine which cell of 24 simplices we're in
-    N = Z.shape[-1] #number of dimensions
-    N1 = N+1 # number of simplices
-    Fn = 1.0*(N1**0.5 - 1)/N
-    Gn = 1.0*(N1 - N1**0.5)/N/N1
-
-
-
-    #skew the Z data and store in z0
-    s = Z.sum(-1) * Fn # Factor for skewing
-    i = fastfloor(Z+s[:,numpy.newaxis]) #nearest value
-    t = (i.sum(-1) * Gn) # Factor for unskewing
-    Z0 = i - t[:,numpy.newaxis]
-    z0 = Z - Z0
-
-    # Use magnitude ordering to determine the simplices that the point z0 is located in
-    rank = numpy.zeros(Z.shape)
-    for k,l in itertools.combinations(range(N),2):
-        rank[:,k] += z0[:,k]>=z0[:,l]
-        rank[:,l] += z0[:,k]<z0[:,l]
-
-    # ind will contain the skewed indices of the N+1 simplices
-    b = numpy.arange(N+1)[:,numpy.newaxis,numpy.newaxis]
-    ind = rank>= N - b
-    # zk contains the skewed locations of the N+1 simplices
-    zk = z0 - ind + 1.0 * b * Gn
-
-    indi = (ind) % 255 + i
-
-    # the gradients that are randomly assign to each simplex
-    grad = ((0,-1,1),)*N
-    grad = numpy.array(list(itertools.product(*grad))[1:])
-    grad = grad[numpy.abs(grad).sum(-1)>=N-1]
-    print grad
-
-    gik = 0
-    for x in range(N-1,-1,-1):
-        gik = perm[indi[:,:,x] + gik]
-    gik = gik%(grad.shape[0])#(2**(N+1))
-    # Calculate the contribution from the simplices
-    tk = 1.0 - (zk*zk).sum(-1)
-    tp = tk>=0
-    tk = tp * tk * tk
-    nk = tp * tk * tk * (grad[gik]*zk).sum(-1)
-    # Sum up and scale the result to cover the range [-1,1]
-    return (70) * nk.sum(0) #was return (2**(N+1)-N-1) * nk.sum(-1)
+    s = SimplexNoise(seed)
+    return s.noise(Z)
 
 
 if __name__ == '__main__':
@@ -333,7 +309,7 @@ if __name__ == '__main__':
     print 'gen noise'
     #n = numpy.array(n2).reshape(80,80)
     t=time.time()
-    n = noisen(arr2).reshape(shape2[0],shape2[1])
+    n = noisen(arr2,seed=3332).reshape(shape2[0],shape2[1])
     print 'arr2 noise',time.time()-t
     t=time.time()
     n3 = noisen(arr3)
@@ -341,8 +317,9 @@ if __name__ == '__main__':
     print 'STATS'
     print '######'
     print n.min(),n.max(),numpy.average(n)
+    print n3.min(),n3.max(),numpy.average(n3)
     n = numpy.array((n - n.min()) / (n.max()-n.min())*255,dtype='u1')
     im = Image.fromarray(n,'L')
     print im.size
-    im.save('noise.png')
+    im.save('noise2.png')
     
