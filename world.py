@@ -13,12 +13,18 @@ import pyglet.gl as gl
 
 # local imports
 from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS
-from util import normalize, sectorize, FACES, cube_v, cube_v2, noisen
+from util import normalize, sectorize, FACES, cube_v, cube_v2
 from blocks import BLOCKS, BLOCK_COLORS, BLOCK_NORMALS, BRICK, GRASS, SAND, STONE, TEXTURE_PATH
+import noise
 
 SECTOR_GRID = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
 SH = SECTOR_GRID.shape
 SECTOR_GRID = SECTOR_GRID.reshape((SH[0]*SH[1]*SH[2],3))
+
+t = int(time.time())
+noisen = noise.SimplexNoise(seed=t)
+noisen1 = noise.SimplexNoise(seed=t+342)
+noisen2 = noise.SimplexNoise(seed=t+434345)
 
 
 class Sector(object):
@@ -232,7 +238,8 @@ class Sector(object):
             self.invalidate()
 
     def _initialize(self):
-        """ Initialize the world by placing all the blocks.
+        """ Initialize the sector by procedurally generating terrain using
+        simplex noise.
 
         """
         N = SECTOR_SIZE
@@ -240,16 +247,21 @@ class Sector(object):
         Z = numpy.mgrid[0:N,0:N].T/STEP
         shape = Z.shape
         Z = Z.reshape((shape[0]*shape[1],2))
+        Z = Z + numpy.array([self.position[0],self.position[2]])/STEP
 
-        N1=noisen.noise(Z + numpy.array([self.position[0],self.position[2]])/STEP)*30
-        #N2=noisen(Z, seed = 32424)
+        N1=noisen.noise(Z)*30
+        N2=noisen1.noise(Z)*30-20
+        N3=noisen2.noise(Z)*30-30
         #N1 = ((N1 - N1.min())/(N1.max() - N1.min()))*20
         N1 = N1.reshape((SECTOR_SIZE,SECTOR_SIZE))
+        N2 = N2.reshape((SECTOR_SIZE,SECTOR_SIZE))
+        N3 = N3.reshape((SECTOR_SIZE,SECTOR_SIZE))
+        print (N1-N2).sum()
         #N2 = (N2 - N2.min())/(N2.max() - N2.min())*30
         Z = Z*STEP + numpy.array([self.position[0],self.position[2]])
         b = numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE,SECTOR_SIZE),dtype='u2')
         for y in range(SECTOR_HEIGHT):
-            b[y] = (y-40<N1-2)*STONE + (((y-40>=N1-2) & (y-40<N1))*GRASS)
+            b[y] = ((y-40<N1-2)*STONE + (((y-40>=N1-2) & (y-40<N1))*GRASS))*(1 - (y-40>N3)*(y-40<N2)*(y>10))
         self.blocks = b.swapaxes(0,1).swapaxes(0,2)
 
 

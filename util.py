@@ -66,9 +66,6 @@ FACES = [
     ( 0, 0,-1), #back
 ]
 
-noisen = noise.SimplexNoise(seed=int(time.time()))
-
-
 def normalize(position):
     """ Accepts `position` of arbitrary precision and returns the block
     containing that position.
