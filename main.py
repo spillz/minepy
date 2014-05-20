@@ -23,7 +23,7 @@ import util
 from config import DIST, TICKS_PER_SEC, FLYING_SPEED, GRAVITY, JUMP_SPEED, \
         MAX_JUMP_HEIGHT, PLAYER_HEIGHT, TERMINAL_VELOCITY, TICKS_PER_SEC, \
         WALKING_SPEED
-from blocks import BRICK, GRASS, SAND, STONE, WOOD, PLANK
+from blocks import BLOCK_ID
 
 
 class Window(pyglet.window.Window):
@@ -67,7 +67,7 @@ class Window(pyglet.window.Window):
         self.dy = 0
 
         # A list of blocks the player can place. Hit num keys to cycle.
-        self.inventory = [BRICK, GRASS, SAND, STONE, WOOD, PLANK]
+        self.inventory = list(BLOCK_ID)
 
         # The current block the user can place. Hit num keys to cycle.
         self.block = self.inventory[0]
@@ -250,6 +250,15 @@ class Window(pyglet.window.Window):
                     break
         return tuple(p)
 
+    def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
+        ind = self.inventory.index(self.block)
+        ind += scroll_y
+        if ind >= len(self.inventory):
+            ind -= len(self.inventory)
+        if ind < 0:
+            ind += len(self.inventory)
+        self.block = self.inventory[ind]
+
     def on_mouse_press(self, x, y, button, modifiers):
         """ Called when a mouse button is pressed. See pyglet docs for button
         amd modifier mappings.
@@ -274,7 +283,7 @@ class Window(pyglet.window.Window):
                     ((button == mouse.LEFT) and (modifiers & key.MOD_CTRL)):
                 # ON OSX, control + left click = right click.
                 if previous:
-                    self.model.sectors[util.sectorize(previous)].add_block(previous, self.block)
+                    self.model.sectors[util.sectorize(previous)].add_block(previous, BLOCK_ID[self.block])
 #
 #                    self.model.add_block(previous, self.block)
             elif button == pyglet.window.mouse.LEFT and block:
@@ -454,7 +463,7 @@ class Window(pyglet.window.Window):
         if block:
             x, y, z = block
             vertex_data=[]
-            for v in util.cube_vertices(x, y, z, 0.51):
+            for v in util.cube_v([x, y, z], 0.51):
                 vertex_data.extend(v)
             gl.glColor3d(0, 0, 0)
             gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
@@ -508,6 +517,13 @@ def setup():
     # Enable culling (not rendering) of back-facing facets -- facets that aren't
     # visible to you.
     gl.glEnable(gl.GL_CULL_FACE)
+
+    #gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_DST_ALPHA)
+    #gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+    gl.glBlendFunc(gl.GL_ZERO, gl.GL_SRC_COLOR)
+    gl.glEnable(gl.GL_BLEND)
+    gl.glAlphaFunc(gl.GL_GREATER, 0.5);
+    gl.glEnable(gl.GL_ALPHA_TEST);
     # Set the texture minification/magnification function to GL_NEAREST (nearest
     # in Manhattan distance) to the specified texture coordinates. GL_NEAREST
     # "is generally faster than GL_LINEAR, but it can produce textured images

@@ -14,23 +14,24 @@ cb_v = numpy.array([
         [+1,-1,-1, -1,-1,-1, -1,+1,-1, +1,+1,-1],  # back
 ],dtype = numpy.float32)
 
+de_v = numpy.array([
+        [0]*12,
+        [0]*12,
+        [-1,-1,+1, +1,-1,-1, +1,+1,-1, -1,+1,+1], 
+        [+1,-1,-1, -1,-1,+1, -1,+1,+1, +1,+1,-1],
+        [-1,-1,-1, +1,-1,+1, +1,+1,+1, -1,+1,-1], 
+        [+1,-1,+1, -1,-1,-1, -1,+1,-1, +1,+1,+1],
+],dtype = numpy.float32)
+
 def cube_v(pos,n):
     return n*cb_v+numpy.tile(pos,4)
 def cube_v2(pos,n):
     return (n*cb_v)+numpy.tile(pos,4)[:,numpy.newaxis,:]
 
-def cube_vertices(x, y, z, n):
-    """ Return the vertices of the cube at position x, y, z with size 2*n.
-
-    """
-    return [
-        [x-n,y+n,z-n, x-n,y+n,z+n, x+n,y+n,z+n, x+n,y+n,z-n],  # top
-        [x-n,y-n,z-n, x+n,y-n,z-n, x+n,y-n,z+n, x-n,y-n,z+n],  # bottom
-        [x-n,y-n,z-n, x-n,y-n,z+n, x-n,y+n,z+n, x-n,y+n,z-n],  # left
-        [x+n,y-n,z+n, x+n,y-n,z-n, x+n,y+n,z-n, x+n,y+n,z+n],  # right
-        [x-n,y-n,z+n, x+n,y-n,z+n, x+n,y+n,z+n, x-n,y+n,z+n],  # front
-        [x+n,y-n,z-n, x-n,y-n,z-n, x-n,y+n,z-n, x+n,y+n,z-n],  # back
-    ]
+def deco_v(pos,n):
+    return n*de_v+numpy.tile(pos,4)
+def deco_v2(pos,n):
+    return (n*de_v)+numpy.tile(pos,4)[:,numpy.newaxis,:]
 
 
 def tex_coord(x, y, n=4):
@@ -43,18 +44,22 @@ def tex_coord(x, y, n=4):
     return [dx, dy, dx + m, dy, dx + m, dy + m, dx, dy + m]
 
 
-def tex_coords(top, bottom, side):
+def tex_coords(top, bottom, *sides):
     """ Return a list of the texture squares for the top, bottom and side.
 
     """
     top = tex_coord(*top)
     bottom = tex_coord(*bottom)
-    side = tex_coord(*side)
     result = []
     result.append(top)
     result.append(bottom)
-    for x in range(4):
-        result.append(side)
+    i=4
+    for s in sides:
+        result.append(tex_coord(*s))
+        i-=1
+    while i>=0:
+        result.append(tex_coord(*sides[-1]))
+        i-=1
     return result
 
 FACES = [

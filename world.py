@@ -14,7 +14,7 @@ import pyglet.gl as gl
 # local imports
 from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS
 from util import normalize, sectorize, FACES, cube_v, cube_v2
-from blocks import BLOCKS, BLOCK_COLORS, BLOCK_NORMALS, BRICK, GRASS, SAND, STONE, TEXTURE_PATH
+from blocks import BLOCK_VERTICES, BLOCK_COLORS, BLOCK_NORMALS, BLOCK_TEXTURES, BLOCK_ID, BLOCK_SOLID, TEXTURE_PATH
 import noise
 
 SECTOR_GRID = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
@@ -101,19 +101,19 @@ class Sector(object):
         if self.exposed is None:
             return        
         if dx>0:
-            b0 = (self.blocks[-1,:,:]!=0)&(sector.blocks[0,:,:]==0)
+            b0 = (self.blocks[-1,:,:]!=0)&(BLOCK_SOLID[sector.blocks[0,:,:]]==0)
             self.exposed[-1,:,:] |= b0 << 4 #right edge
             self.invalidate()
         elif dx<0:
-            b0 = (self.blocks[0,:,:]!=0)&(sector.blocks[-1,:,:]==0)
+            b0 = (self.blocks[0,:,:]!=0)&(BLOCK_SOLID[sector.blocks[-1,:,:]]==0)
             self.exposed[0,:,:] |= b0 << 5 #left edge
             self.invalidate()
         elif dz>0:
-            b0 = (self.blocks[:,:,-1]!=0)&(sector.blocks[:,:,0]==0)
+            b0 = (self.blocks[:,:,-1]!=0)&(BLOCK_SOLID[sector.blocks[:,:,0]]==0)
             self.exposed[:,:,-1] |= b0 << 3 #front edge
             self.invalidate()
         elif dz<0:
-            b0 = (self.blocks[:,:,0]!=0)&(sector.blocks[:,:,-1]==0)
+            b0 = (self.blocks[:,:,0]!=0)&(BLOCK_SOLID[sector.blocks[:,:,-1]]==0)
             self.exposed[:,:,0] |= b0 << 2 #back edge
             self.invalidate()
 
@@ -129,13 +129,13 @@ class Sector(object):
             s=None
         if s is not None:
             if dx>0:
-                return s.blocks[0,:,:]==0
+                return BLOCK_SOLID[s.blocks[0,:,:]]==0
             elif dx<0:
-                return s.blocks[-1,:,:]==0
+                return BLOCK_SOLID[s.blocks[-1,:,:]]==0
             elif dz>0:
-                return s.blocks[:,:,0]==0
+                return BLOCK_SOLID[s.blocks[:,:,0]]==0
             elif dz<0:
-                return s.blocks[:,:,-1]==0
+                return BLOCK_SOLID[s.blocks[:,:,-1]]==0
         else:
             if dx>0:
                 return numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE),dtype=bool)
@@ -149,7 +149,10 @@ class Sector(object):
     def calc_exposed_faces(self):
         #TODO: The 3D bitwise ops are slow
         t = time.time()
-        air = self.blocks == 0
+        air = BLOCK_SOLID[self.blocks] == 0
+
+        light = numpy.cumproduct(air[:,::-1,:], axis=1)[:,::-1,:]
+
         exposed = numpy.zeros(air.shape,dtype=numpy.uint8)
         exposed[0,:,:] |= self.edge_blocks(dx=-1)<<5 #left edge
         exposed[-1,:,:] |= self.edge_blocks(dx=1)<<4 #right edge
@@ -179,11 +182,12 @@ class Sector(object):
             exposed = numpy.array(exposed,dtype=bool)
             exposed = exposed[:,:6]
             b = self[pos]
-            texture_data = BLOCKS[b]
+            texture_data = BLOCK_TEXTURES[b]
             color_data = BLOCK_COLORS[b]
-            normal_data = numpy.tile(BLOCK_NORMALS,(len(b),1,4))
-            vertex_data = cube_v2(numpy.array(pos), 0.5)
-            
+#            color_data = BLOCK_COLORS[b]*(0.25+0.75*exposed_light[:,:,numpy.newaxis])
+            normal_data = numpy.tile(BLOCK_NORMALS,(len(b),1,4))#*exposed_light[:,:,numpy.newaxis]
+            vertex_data = 0.5*BLOCK_VERTICES[b] + numpy.tile(pos,4)[:,numpy.newaxis,:]
+
             v = vertex_data[exposed].ravel()
             t = texture_data[exposed].ravel()
             n = normal_data[exposed].ravel()
@@ -227,10 +231,10 @@ class Sector(object):
         sector_pos = numpy.array(position) - self.position
         x, y, z = sector_pos
         exposed = 0
-        if self[position] !=0:
+        if self[position] != 0:
             i=1
             for f in FACES:
-                if self.model[numpy.array(position)+numpy.array(f)] == 0:
+                if not BLOCK_SOLID[self.model[numpy.array(position)+numpy.array(f)]]:
                     exposed |= 1<<(8-i)
                 i+=1
         if exposed != self.exposed[x,y,z]:
@@ -242,6 +246,9 @@ class Sector(object):
         simplex noise.
 
         """
+        STONE = BLOCK_ID['Stone']
+        GRASS = BLOCK_ID['Grass']
+
         N = SECTOR_SIZE
         STEP = 40.0
         Z = numpy.mgrid[0:N,0:N].T/STEP
@@ -406,7 +413,7 @@ class Model(object):
         x, y, z = position
         for dx, dy, dz in FACES:
             b = self[normalize((x + dx, y + dy, z + dz))]
-            if b == 0:
+            if not BLOCK_SOLID[b]:
                 return True
         return False
 
@@ -421,7 +428,7 @@ class Model(object):
         for dx, dy, dz in FACES:
             key = (x + dx, y + dy, z + dz)
             b = self[key]
-            if b==0 or b is None:
+            if not BLOCK_SOLID[b] or b is None:
                 continue
 #            self.update_block(key)
             self.sectors[sectorize(key)].update_block(key)
