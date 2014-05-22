@@ -18,7 +18,7 @@ import numpy
 import itertools
 
 # local module imports
-import world
+import world_proxy as world
 import util
 from config import DIST, TICKS_PER_SEC, FLYING_SPEED, GRAVITY, JUMP_SPEED, \
         MAX_JUMP_HEIGHT, PLAYER_HEIGHT, TERMINAL_VELOCITY, TICKS_PER_SEC, \
@@ -78,7 +78,7 @@ class Window(pyglet.window.Window):
             key._6, key._7, key._8, key._9, key._0]
 
         # Instance of the model that handles the world.
-        self.model = world.Model()
+        self.model = world.ModelProxy()
 
         # The label that is displayed in the top left of the canvas.
         self.label = pyglet.text.Label('', font_name='Arial', font_size=18,
@@ -165,10 +165,8 @@ class Window(pyglet.window.Window):
         """
 #        self.model.process_queue()
         sector = util.sectorize(self.position)
-        if sector != self.sector:
-            print 'changing sectors',self.sector,'to',sector
-            self.model.change_sectors(self.sector, sector)
-            self.sector = sector
+        self.model.update_sectors(self.sector, sector)
+        self.sector = sector
         m = 20
         dt = min(dt, 0.2)
         for _ in xrange(m):
@@ -378,6 +376,10 @@ class Window(pyglet.window.Window):
         self.reticle = pyglet.graphics.vertex_list(4,
             ('v2i', (x - n, y, x + n, y, x, y - n, x, y + n))
         )
+
+    def on_close(self):
+        self.model.quit()
+        pyglet.window.Window.on_close(self)
 
     def set_2d(self):
         """ Configure OpenGL to draw in 2d.
