@@ -44,16 +44,16 @@ def tex_coord(x, y, n=4):
     return [dx, dy, dx + m, dy, dx + m, dy + m, dx, dy + m]
 
 
-def tex_coords(top, bottom, *sides):
+def tex_coords(*sides): #top, bottom, 
     """ Return a list of the texture squares for the top, bottom and side.
 
     """
-    top = tex_coord(*top)
-    bottom = tex_coord(*bottom)
+#    top = tex_coord(*top)
+#    bottom = tex_coord(*bottom)
     result = []
-    result.append(top)
-    result.append(bottom)
-    i=4
+#    result.append(top)
+#    result.append(bottom)
+    i=6
     for s in sides:
         result.append(tex_coord(*s))
         i-=1

@@ -4,7 +4,7 @@ from util import tex_coords, FACES, cb_v, de_v
 TEXTURE_PATH = 'texture_fv.png'
 
 white = numpy.tile(numpy.array([255,255,255]),6*4).reshape(6,3*4)
-grass_top = numpy.array([30,188,30]*4+[255,255,255]*5*4).reshape(6,3*4)
+grass_top = numpy.array([30,220,30]*4+[255,255,255]*5*4).reshape(6,3*4)
 
 
 class Block(object):
@@ -36,6 +36,10 @@ class Stone(Block):
     name = 'Stone'
     coords = ((0, 14), (0, 14), (0, 14))  #4 stone
     
+class IronBlock(Block):
+    name = 'Iron Block'
+    coords = ((6, 14),)
+    
 class Wood(Block):
     name = 'Wood'
     coords = ((5, 14), (5, 14), (4, 14))  #5 wood
@@ -44,9 +48,17 @@ class Plank(Block):
     name = 'Plank'
     coords = ((4, 15), (4, 15), (4, 15))  #6 plank
     
+class CraftingTable(Block):
+    name = 'Crafting Table'
+    coords = ((11, 13), (4,15), (11, 12), (11, 12), (12, 12))  
+    
 class Pumpkin(Block):
     name = 'Pumpkin'
     coords = ((6, 9), (6, 8), (7, 8), (6,8)) 
+    
+class JackOLantern(Block):
+    name = 'Jack O\'Lantern'
+    coords = ((6, 9), (6, 8), (8, 8), (6,8)) 
     
 class Rose(Decoration, Block):
     name = 'Rose'
@@ -58,7 +70,6 @@ i = 1
 BLOCKS = [b for b in Block.__subclasses__() if b.name != None]
 BLOCK_ID = {}
 for x in BLOCKS:
-    print x.name,i
     BLOCK_ID[x.name] = i
     i+=1
 BLOCK_NORMALS = numpy.array(FACES)
