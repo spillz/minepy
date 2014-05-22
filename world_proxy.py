@@ -7,7 +7,6 @@ import numpy
 import multiprocessing.connection
 import cPickle
 
-
 # pyglet imports
 import pyglet
 image = pyglet.image
@@ -110,7 +109,6 @@ class ModelProxy(object):
                     continue
                 if self.sectors[s].shown:
                     draw_invalid = self.sectors[s].draw(draw_invalid)
-        #print 'draw',time.time() -t
 
     def neighbor_sectors(self, pos):
         """

@@ -55,10 +55,10 @@ class Sector(object):
         if len(pos.shape)>1:
             pos = pos.T
         self.blocks[pos[0],pos[1],pos[2]] = value
-
+            
     def update_edge(self, dx, dz, sector):
         if self.exposed is None:
-            return
+            return        
         if dx>0:
             b0 = (self.blocks[-1,:,:]!=0)&(BLOCK_SOLID[sector.blocks[0,:,:]]==0)
             self.exposed[-1,:,:] |= b0 << 4 #right edge
@@ -162,7 +162,7 @@ class Sector(object):
         texture : list of len 3
             The coordinates of the texture squares. Use `tex_coords()` to
             generate.
-        """
+        """                
         position = normalize(position)
         if self[position] != 0:
             self.remove_block(position, immediate)
@@ -225,6 +225,7 @@ class Sector(object):
         N1 = N1.reshape((SECTOR_SIZE,SECTOR_SIZE))
         N2 = N2.reshape((SECTOR_SIZE,SECTOR_SIZE))
         N3 = N3.reshape((SECTOR_SIZE,SECTOR_SIZE))
+
         #N2 = (N2 - N2.min())/(N2.max() - N2.min())*30
         Z = Z*STEP + numpy.array([self.position[0],self.position[2]])
         b = numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE,SECTOR_SIZE),dtype='u2')
@@ -401,8 +402,6 @@ class Server(object):
                 print('accept',conn)
         self.listener.close()
 
-
-
 if __name__ == '__main__':
     if len(sys.argv)>1:
         if sys.argv[1] == 'LAN':
@@ -411,4 +410,3 @@ if __name__ == '__main__':
     #TODO: use argparse module to override default server settings
     s = Server()
     s.serve()
-
