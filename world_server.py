@@ -5,11 +5,19 @@ import threading
 import time
 import numpy
 import select
-
+import cPickle
 import multiprocessing.connection
+import socket
+import sys
+
+def get_network_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    s.connect(('<broadcast>', 0))
+    return s.getsockname()[0]
 
 # local imports
-from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS
+from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS, SERVER_IP, SERVER_PORT
 from util import normalize, sectorize, FACES, cube_v, cube_v2
 from blocks import BLOCK_VERTICES, BLOCK_COLORS, BLOCK_NORMALS, BLOCK_TEXTURES, BLOCK_ID, BLOCK_SOLID, TEXTURE_PATH
 import noise
@@ -47,10 +55,10 @@ class Sector(object):
         if len(pos.shape)>1:
             pos = pos.T
         self.blocks[pos[0],pos[1],pos[2]] = value
-            
+
     def update_edge(self, dx, dz, sector):
         if self.exposed is None:
-            return        
+            return
         if dx>0:
             b0 = (self.blocks[-1,:,:]!=0)&(BLOCK_SOLID[sector.blocks[0,:,:]]==0)
             self.exposed[-1,:,:] |= b0 << 4 #right edge
@@ -96,7 +104,7 @@ class Sector(object):
                 return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
             elif dz<0:
                 return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
-    
+
     def calc_exposed_faces(self):
         #TODO: The 3D bitwise ops are slow
         t = time.time()
@@ -116,7 +124,7 @@ class Sector(object):
         exposed[:,:,:-1] |= air[:,:,1:]<<3 #forward
         exposed[:,:,1:] |= air[:,:,:-1]<<2 #back
         self.exposed = exposed*(~air)
-                
+
     def check_show(self):
         if self.exposed == None:
             self.calc_exposed_faces()
@@ -154,14 +162,14 @@ class Sector(object):
         texture : list of len 3
             The coordinates of the texture squares. Use `tex_coords()` to
             generate.
-        """                
+        """
         position = normalize(position)
         if self[position] != 0:
             self.remove_block(position, immediate)
         self[position] = texture
         self.update_block(position)
         self.model.check_neighbors(position)
-    
+
     def remove_block(self, position):
         """ Remove the block at the given `position`.
 
@@ -217,7 +225,6 @@ class Sector(object):
         N1 = N1.reshape((SECTOR_SIZE,SECTOR_SIZE))
         N2 = N2.reshape((SECTOR_SIZE,SECTOR_SIZE))
         N3 = N3.reshape((SECTOR_SIZE,SECTOR_SIZE))
-        print (N1-N2).sum()
         #N2 = (N2 - N2.min())/(N2.max() - N2.min())*30
         Z = Z*STEP + numpy.array([self.position[0],self.position[2]])
         b = numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE,SECTOR_SIZE),dtype='u2')
@@ -257,7 +264,7 @@ class Model(object):
             return self.sectors[sectorize(position)][position]
         except:
             return None
-        
+
     def neighbor_sectors(self, pos):
         """
         return a tuple (dx, dz, sector) of currently loaded neighbors to the sector at pos
@@ -356,15 +363,16 @@ class Model(object):
 
 class Server(object):
     def __init__(self):
-        self.listener = multiprocessing.connection.Listener(address = 'localhost:2025', authkey = 'password')
+        print('starting server at %s:%i'%(SERVER_IP,SERVER_PORT))
+        self.listener = multiprocessing.connection.Listener(address = (SERVER_IP,SERVER_PORT), authkey = 'password')
         self.connections = []
         self.world = Model()
-    
+
     def accept_connection(self):
-        conn = self.listener.accept()        
+        conn = self.listener.accept()
         self.connections.append(conn)
         return conn
-    
+
     def serve(self):
         alive = True
         while alive:
@@ -381,7 +389,8 @@ class Server(object):
                             spos = data
                             sector_data, blocks = self.world.request_sector(spos)
                             print('sending sector data',spos)
-                            conn.send([spos, sector_data, blocks])
+                            conn.send_bytes(cPickle.dumps([spos, sector_data, blocks],-1))
+                            #conn.send([spos, sector_data, blocks])
                         if msg == 'kill':
                             alive = False
                     except EOFError:
@@ -391,12 +400,15 @@ class Server(object):
                 conn = self.accept_connection()
                 print('accept',conn)
         self.listener.close()
-        
 
-    
+
+
 if __name__ == '__main__':
+    if len(sys.argv)>1:
+        if sys.argv[1] == 'LAN':
+            SERVER_IP = get_network_ip()
     #TODO: use a config file for server settings
     #TODO: use argparse module to override default server settings
     s = Server()
     s.serve()
-        
+

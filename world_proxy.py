@@ -5,6 +5,8 @@ import threading
 import time
 import numpy
 import multiprocessing.connection
+import cPickle
+
 
 # pyglet imports
 import pyglet
@@ -13,6 +15,7 @@ from pyglet.graphics import TextureGroup
 import pyglet.gl as gl
 
 # local imports
+import config
 from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS
 from util import normalize, sectorize, FACES, cube_v, cube_v2
 from blocks import BLOCK_VERTICES, BLOCK_COLORS, BLOCK_NORMALS, BLOCK_TEXTURES, BLOCK_ID, BLOCK_SOLID, TEXTURE_PATH
@@ -51,15 +54,15 @@ class SectorProxy(object):
             pos = pos.T
             return self.blocks[pos[0],pos[1],pos[2]]
         return self.blocks[pos[0],pos[1],pos[2]]
-        
+
     def grid(self):
         grid = SECTOR_GRID + numpy.array(self.position)
         return grid
-        
+
     def invalidate(self):
         self.invalidate_vt = True
         self.vt_data = None
-                    
+
     def check_show(self,add_to_batch = True):
         if add_to_batch and self.vt_data:
             (count, v, t, n, c) = self.vt_data
@@ -85,8 +88,8 @@ class ModelProxy(object):
 
         self.n_requests = 0
         self.n_responses = 0
-        
-        self.client = multiprocessing.connection.Client(address = 'localhost:2025', authkey = 'password')
+
+        self.client = multiprocessing.connection.Client(address = (config.SERVER_IP,config.SERVER_PORT), authkey = 'password')
 
     def __getitem__(self, position):
         """
@@ -107,8 +110,8 @@ class ModelProxy(object):
                     continue
                 if self.sectors[s].shown:
                     draw_invalid = self.sectors[s].draw(draw_invalid)
-        #print 'draw',time.time() -t 
-        
+        #print 'draw',time.time() -t
+
     def neighbor_sectors(self, pos):
         """
         return a tuple (dx, dz, sector) of currently loaded neighbors to the sector at pos
@@ -147,7 +150,8 @@ class ModelProxy(object):
                 self.client.send(['request_sector',spos])
                 self.n_requests += 1
         if self.client.poll():
-            spos, vt_data, blocks = self.client.recv()
+#            spos, vt_data, blocks = self.client.recv()
+            spos, vt_data, blocks = cPickle.loads(self.client.recv_bytes())
             self.n_responses+=1
             print 'recv',spos,len(vt_data[1])
             s = SectorProxy(spos,self.group,self)
@@ -197,7 +201,7 @@ class ModelProxy(object):
             if not BLOCK_SOLID[b]:
                 return True
         return False
-    
+
     def quit(self,kill_server=True):
         if kill_server:
             self.client.send(['kill',0])
