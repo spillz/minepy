@@ -55,10 +55,10 @@ class Sector(object):
         if len(pos.shape)>1:
             pos = pos.T
         self.blocks[pos[0],pos[1],pos[2]] = value
-            
+
     def update_edge(self, dx, dz, sector):
         if self.exposed is None:
-            return        
+            return
         if dx>0:
             b0 = (self.blocks[-1,:,:]!=0)&(BLOCK_SOLID[sector.blocks[0,:,:]]==0)
             self.exposed[-1,:,:] |= b0 << 4 #right edge
@@ -162,7 +162,7 @@ class Sector(object):
         texture : list of len 3
             The coordinates of the texture squares. Use `tex_coords()` to
             generate.
-        """                
+        """
         position = normalize(position)
         if self[position] != 0:
             self.remove_block(position, immediate)
