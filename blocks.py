@@ -66,6 +66,10 @@ class Rose(Decoration, Block):
 #    vertices = de_v
 #    solid = False
 
+class GobbleDeBlock(Block):
+    name = 'Gobbledeblock'
+    coords = ((9,14), (13,1), (13,8), (8,9), (15,5), (0,12))
+
 i = 1
 BLOCKS = [b for b in Block.__subclasses__() if b.name != None]
 BLOCK_ID = {}
