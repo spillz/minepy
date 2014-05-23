@@ -1,6 +1,7 @@
 import math
 import random
 import time
+import sys
 
 # pyglet imports
 import pyglet
@@ -20,6 +21,7 @@ import itertools
 # local module imports
 import world_proxy as world
 import util
+import config
 from config import DIST, TICKS_PER_SEC, FLYING_SPEED, GRAVITY, JUMP_SPEED, \
         MAX_JUMP_HEIGHT, PLAYER_HEIGHT, TERMINAL_VELOCITY, TICKS_PER_SEC, \
         WALKING_SPEED
@@ -427,7 +429,7 @@ class Window(pyglet.window.Window):
         gl.glDisable(gl.GL_LIGHT0)
         gl.glEnable(gl.GL_LIGHT1)
 
-        
+
     def get_frustum_circle(self):
         x,y = self.rotation
         dx = math.cos(math.radians(x - 90))
@@ -538,6 +540,9 @@ def setup():
 
 
 def main():
+    if len(sys.argv)>1:
+        config.SERVER_IP = sys.argv[1]
+        print('Using server IP address',config.SERVER_IP,':',config.SERVER_PORT)
     window = Window(width=300, height=200, caption='Pyglet', resizable=True)
     # Hide the mouse cursor and prevent the mouse from leaving the window.
     window.set_exclusive_mouse(False)
