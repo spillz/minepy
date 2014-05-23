@@ -137,6 +137,10 @@ class ModelProxy(object):
                     dist = (pos[0]-new[0])**2 + (pos[2]-new[2])**2
                     if pos not in self.sectors:
                         self.sectors_pos.append((dist,pos))
+                for s in list(self.sectors):
+                    if (new[0] - s[0])**2 + (new[2] - s[2])**2 > (LOADED_SECTORS*SECTOR_SIZE)**2:
+                        print('dropping sector',s)
+                        del self.sectors[s]
                 self.sectors_pos = sorted(self.sectors_pos)
             if len(self.sectors_pos)>0:
                 spos = self.sectors_pos.pop(0)[1]
