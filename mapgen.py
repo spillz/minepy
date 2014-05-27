@@ -35,7 +35,7 @@ def initialize_map_generator():
     HILL_OFFSET = 5
     CONTINENTAL_STEP = 1500.0
     CONTINENTAL_SCALE = 40.0
-    CONTINENTAL_OFFSET = 20
+    CONTINENTAL_OFFSET = 80
     GAIN_STEP = 3000.0
     GAIN_SCALE = 5
     GAIN_OFFSET = 5
@@ -64,7 +64,7 @@ def generate_sector(position, sector, world):
 
     b = numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE,SECTOR_SIZE),dtype='u2')
     for y in range(SECTOR_HEIGHT):
-        b[y] = ((y-40<N1-3)*STONE + (((y-40>=N1-3) & (y-40<N1))*GRASS))
-        thresh = ((y-40>N3)*(y-40<N2)*(y>10))>0
+        b[y] = ((y<N1-3)*STONE + (((y>=N1-3) & (y<N1))*GRASS))
+        thresh = ((y>N3)*(y<N2)*(y>10))>0
         b[y] = b[y]*(1 - thresh) + SAND * thresh
     return b.swapaxes(0,1).swapaxes(0,2)

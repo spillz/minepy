@@ -47,17 +47,32 @@ class SectorLoader(object):
         while True:
             try:
                 msg, data = self._pipe.recv()
-                print('received', msg, data)
+                print('received', msg)
             except:
                 return
             if msg == 'quit':
                 print('loader terminated by owner')
                 return
             if msg == 'request_sector':
-                pos = (data[0], -40, data[2])
+                pos = (data[0], 0, data[2])
                 self._initialize(pos)
                 self._calc_vertex_data(pos)
                 self._pipe.send_bytes(cPickle.dumps([pos, self.blocks, self.vt_data],-1))
+            if msg == 'add_block':
+                spos = data[0]
+                pos = data[1]
+                block_id = data[2]
+                self.blocks = data[3]
+                self.set_block(pos, spos, block_id)
+                self._calc_vertex_data(spos)
+                self._pipe.send_bytes(cPickle.dumps([spos, self.blocks, self.vt_data],-1))
+            if msg == 'remove_block':
+                spos = data[0]
+                pos = data[1]
+                self.blocks = data[2]
+                self.set_block(pos, spos, 0)
+                self._calc_vertex_data(spos)
+                self._pipe.send_bytes(cPickle.dumps([spos, self.blocks, self.vt_data],-1))
 
     def poll(self):
         return self.pipe.poll()
@@ -126,12 +141,25 @@ class SectorLoader(object):
         count = len(v)/3
 
         self.vt_data = (count, v, t, n, c)
+
+    def get_block(self, position, sector_position):
+        pos = position - numpy.array(sector_position)
+        if len(pos.shape)>1:
+            pos = pos.T
+            return self.blocks[pos[0],pos[1],pos[2]]
+        return self.blocks[pos[0],pos[1],pos[2]]
         
+    def set_block(self, position, sector_position, val):
+        pos = position - numpy.array(sector_position)
+        if len(pos.shape)>1:
+            pos = pos.T
+            self.blocks[pos[0],pos[1],pos[2]] = val
+        self.blocks[pos[0],pos[1],pos[2]] = val
         
 
 class SectorProxy(object):
     def __init__(self, position, group, model, shown=True):
-        self.position = position[0],-40,position[2]
+        self.position = position[0],0,position[2]
         self.group = group
         self.model = model
         # A Batch is a collection of vertex lists for batched rendering.
@@ -165,17 +193,18 @@ class SectorProxy(object):
 
     def invalidate(self):
         self.invalidate_vt = True
-        self.vt_data = None
 
     def check_show(self,add_to_batch = True):
-        if add_to_batch and self.vt_data:
+        if add_to_batch and self.vt_data is not None:
+            if self.vt is not None:                
+                print('deleting vt',self.position)
+                self.vt.delete()
             (count, v, t, n, c) = self.vt_data
             self.vt = self.batch.add(count, gl.GL_QUADS, self.group,
                 ('v3f/static', v),
                 ('t2f/static', t),
                 ('n3f/static', n),
                 ('c3B/static', c))
-            self.vt_data = None
 
 
 class ModelProxy(object):
@@ -208,10 +237,19 @@ class ModelProxy(object):
             return None
 
     def add_block(self, position, block):
-        pass
+        spos = sectorize(position)
+        if spos in self.sectors:
+            s = self.sectors[spos]
+            blocks = s.blocks
+            self.loader.send(['add_block',[spos, position, block, blocks]])
         
     def remove_block(self, position):
-        pass
+        spos = sectorize(position)
+        if spos in self.sectors:
+            s = self.sectors[spos]
+            blocks = s.blocks
+            print('remove',spos,position)
+            self.loader.send(['remove_block',[spos, position, blocks]])
         
     def draw(self, position, (center, radius)):
         #t = time.time()
@@ -255,22 +293,31 @@ class ModelProxy(object):
                 for s in list(self.sectors):
                     if (new[0] - s[0])**2 + (new[2] - s[2])**2 > (LOADED_SECTORS*SECTOR_SIZE)**2:
                         print('dropping sector',s)
+                        if self.sectors[s].vt:
+                            self.sectors[s].vt.delete()
                         del self.sectors[s]
                 self.sectors_pos = sorted(self.sectors_pos)
             if len(self.sectors_pos)>0:
                 spos = self.sectors_pos.pop(0)[1]
-                print 'requesting sector',spos
+                print('requesting sector',spos)
                 self.loader.send(['request_sector',spos])
                 self.n_requests += 1
         if self.loader.poll():
             spos, blocks, vt_data = self.loader.recv()
-            self.n_responses+=1
-            print 'recv',spos,len(vt_data[1])
-            s = SectorProxy(spos,self.group,self)
-            s.blocks[:,:,:] = blocks
-            s.vt_data = vt_data
-            self.sectors[sectorize(spos)] = s
-            s.check_show()
+            self.n_responses = self.n_requests
+            print('recv',spos,len(vt_data[1]))
+            if spos in self.sectors:
+                print('setting sector data')
+                s = self.sectors[spos]
+                s.blocks[:,:,:] = blocks
+                s.vt_data = vt_data
+                s.invalidate()
+            else:
+                s = SectorProxy(spos,self.group,self)
+                s.blocks[:,:,:] = blocks
+                s.vt_data = vt_data
+                self.sectors[sectorize(spos)] = s
+                s.invalidate()
             ##add the sector to the worldproxy
 
     def hit_test(self, position, vector, max_distance=8):
