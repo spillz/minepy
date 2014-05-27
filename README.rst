@@ -6,7 +6,7 @@ minepy
    :scale: 50 %
 
 
-A fork of fogleman's simple Minecraft-inspired demo (https://github.com/fogleman/minecraft) written in Python being developed for and with the 7 and the 6 year old.
+A fork of fogleman's simple Minecraft-inspired demo (https://github.com/fogleman/minecraft) written in Python being developed for and with the 6 and 7 year olds.
 
 Known Issues
 ------------
@@ -100,7 +100,7 @@ Licenses
 
 Code 
 
-Copyright (C) 2014 by Damien Moore are licensed GPLv3
+Copyright (C) 2014 by Damien Moore and licensed GPLv3
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
