@@ -171,7 +171,7 @@ class Window(pyglet.window.Window):
         self.sector = sector
         m = 20
         dt = min(dt, 0.2)
-        for _ in xrange(m):
+        for _ in range(m):
             self._update(dt / m)
 
     def _update(self, dt):
@@ -228,14 +228,14 @@ class Window(pyglet.window.Window):
         p = list(position)
         np = util.normalize(position)
         for face in util.FACES:  # check all surrounding blocks
-            for i in xrange(3):  # check each dimension independently
+            for i in range(3):  # check each dimension independently
                 if not face[i]:
                     continue
                 # How much overlap you have with this dimension.
                 d = (p[i] - np[i]) * face[i]
                 if d < pad:
                     continue
-                for dy in xrange(height):  # check each height
+                for dy in range(height):  # check each height
                     op = list(np)
                     op[1] -= dy
                     op[i] += face[i]
