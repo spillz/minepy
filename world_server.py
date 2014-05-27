@@ -10,27 +10,22 @@ import multiprocessing.connection
 import socket
 import sys
 
+# local imports
+from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS, SERVER_IP, SERVER_PORT
+from util import normalize, sectorize, FACES, cube_v, cube_v2
+from blocks import BLOCK_VERTICES, BLOCK_COLORS, BLOCK_NORMALS, BLOCK_TEXTURES, BLOCK_ID, BLOCK_SOLID, TEXTURE_PATH
+import mapgen
+
 def get_network_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     s.connect(('<broadcast>', 0))
     return s.getsockname()[0]
 
-# local imports
-from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS, SERVER_IP, SERVER_PORT
-from util import normalize, sectorize, FACES, cube_v, cube_v2
-from blocks import BLOCK_VERTICES, BLOCK_COLORS, BLOCK_NORMALS, BLOCK_TEXTURES, BLOCK_ID, BLOCK_SOLID, TEXTURE_PATH
-import noise
 
 SECTOR_GRID = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
 SH = SECTOR_GRID.shape
 SECTOR_GRID = SECTOR_GRID.reshape((SH[0]*SH[1]*SH[2],3))
-
-t = int(time.time())
-noisen = noise.SimplexNoise(seed=t)
-noisen1 = noise.SimplexNoise(seed=t+342)
-noisen2 = noise.SimplexNoise(seed=t+434345)
-
 
 class Sector(object):
     def __init__(self,position,model):
@@ -208,38 +203,16 @@ class Sector(object):
         simplex noise.
 
         """
-        STONE = BLOCK_ID['Stone']
-        GRASS = BLOCK_ID['Grass']
-
-        N = SECTOR_SIZE
-        STEP = 40.0
-        Z = numpy.mgrid[0:N,0:N].T/STEP
-        shape = Z.shape
-        Z = Z.reshape((shape[0]*shape[1],2))
-        Z = Z + numpy.array([self.position[0],self.position[2]])/STEP
-
-        N1=noisen.noise(Z)*30
-        N2=noisen1.noise(Z)*30-20
-        N3=noisen2.noise(Z)*30-30
-        #N1 = ((N1 - N1.min())/(N1.max() - N1.min()))*20
-        N1 = N1.reshape((SECTOR_SIZE,SECTOR_SIZE))
-        N2 = N2.reshape((SECTOR_SIZE,SECTOR_SIZE))
-        N3 = N3.reshape((SECTOR_SIZE,SECTOR_SIZE))
-
-        #N2 = (N2 - N2.min())/(N2.max() - N2.min())*30
-        Z = Z*STEP + numpy.array([self.position[0],self.position[2]])
-        b = numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE,SECTOR_SIZE),dtype='u2')
-        for y in range(SECTOR_HEIGHT):
-            b[y] = ((y-40<N1-2)*STONE + (((y-40>=N1-2) & (y-40<N1))*GRASS))*(1 - (y-40>N3)*(y-40<N2)*(y>10))
-        self.blocks = b.swapaxes(0,1).swapaxes(0,2)
+        self.blocks = mapgen.generate_sector(self.position, None, None)
 
 
 class Model(object):
 
     def __init__(self):
-
+        mapgen.initialize_map_generator()
         # The world is stored in sector chunks.
         self.sectors = {}
+        self.sector_cache = []
         self.sector_lock = threading.Lock()
         self.thread = None
 
@@ -295,6 +268,9 @@ class Model(object):
             t1 = time.time()
             s._initialize()
             t2 = time.time()
+            self.sector_cache.append(spos)
+            if len(self.sector_cache)>LOADED_SECTORS*LOADED_SECTORS+20:
+                del self.sectors[self.sector_cache.pop(0)]
             self.sectors[spos] = s
             t3 = time.time()
             s.check_show()
@@ -390,9 +366,9 @@ class Server(object):
                             spos = data
                             sector_data, blocks = self.world.request_sector(spos)
                             print('sending sector data',spos)
-                            conn.send_bytes(cPickle.dumps([spos, sector_data, blocks],-1))
+                            conn.send_bytes(cPickle.dumps([spos, blocks, sector_data],-1))
                             #conn.send([spos, sector_data, blocks])
-                        if msg == 'kill':
+                        if msg == 'quit':
                             alive = False
                     except EOFError:
                         print('Lost',conn)
@@ -406,6 +382,8 @@ if __name__ == '__main__':
     if len(sys.argv)>1:
         if sys.argv[1] == 'LAN':
             SERVER_IP = get_network_ip()
+        else:
+            SERVER_IP = 'localhost'
     #TODO: use a config file for server settings
     #TODO: use argparse module to override default server settings
     s = Server()

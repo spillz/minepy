@@ -5,6 +5,8 @@ import threading
 import time
 import numpy
 import multiprocessing.connection
+import multiprocessing.sharedctypes
+import multiprocessing
 import cPickle
 
 # pyglet imports
@@ -18,11 +20,113 @@ import config
 from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS
 from util import normalize, sectorize, FACES, cube_v, cube_v2
 from blocks import BLOCK_VERTICES, BLOCK_COLORS, BLOCK_NORMALS, BLOCK_TEXTURES, BLOCK_ID, BLOCK_SOLID, TEXTURE_PATH
-import noise
+import mapgen
 
 SECTOR_GRID = numpy.mgrid[:SECTOR_SIZE,:SECTOR_HEIGHT,:SECTOR_SIZE].T
 SH = SECTOR_GRID.shape
 SECTOR_GRID = SECTOR_GRID.reshape((SH[0]*SH[1]*SH[2],3))
+
+class SectorLoader(object):
+    def __init__(self):
+        self.pipe, self._pipe = multiprocessing.Pipe()
+#        self.blocks = multiprocessing.Array('B',SECTOR_SIZE*SECTOR_SIZE*SECTOR_HEIGHT)
+#        self.v = multiprocessing.Array('f',200000)
+#        self.t = multiprocessing.Array('f',200000)
+#        self.n = multiprocessing.Array('f',200000)
+#        self.c = multiprocessing.Array('f',200000)
+        self.blocks = numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT,SECTOR_SIZE),dtype='u2')
+        self.vt_data = None
+
+#        self.count = multiprocessing.Value('f')
+        self.process = multiprocessing.Process(target = self._loader)
+        self.process.start()
+
+    def _loader(self):
+        mapgen.initialize_map_generator()
+        while True:
+            print 'loader started'
+            try:
+                msg, data = self._pipe.recv()
+                print('received', msg, data)
+            except:
+                return
+            if msg == 'quit':
+                return
+            if msg == 'request_sector':
+                pos = (data[0], -40, data[2])
+                self._initialize(pos)
+                self._calc_vertex_data(pos)
+                self._pipe.send_bytes(cPickle.dumps([pos, self.blocks, self.vt_data],-1))
+
+    def poll(self):
+        return self.pipe.poll()
+
+    def send(self, list_object):
+        self.pipe.send(list_object)
+        
+    def send_bytes(self, bytes_object):
+        self.pipe.send_bytes(bytes_object)
+
+    def recv(self):
+        return self.pipe.recv()
+        
+    def recv_bytes(self):
+        return self.pipe.recv_bytes()
+
+    def _initialize(self, position):
+        """ Initialize the sector by procedurally generating terrain using
+        simplex noise.
+
+        """
+        self.blocks = mapgen.generate_sector(position, None, None)
+
+    def _calc_exposed_faces(self):
+        #TODO: The 3D bitwise ops are slow
+        t = time.time()
+        air = BLOCK_SOLID[self.blocks] == 0
+
+        light = numpy.cumproduct(air[:,::-1,:], axis=1)[:,::-1,:]
+
+        exposed = numpy.zeros(air.shape,dtype=numpy.uint8)
+#        exposed[0,:,:] |= self.edge_blocks(dx=-1)<<5 #left edge
+#        exposed[-1,:,:] |= self.edge_blocks(dx=1)<<4 #right edge
+#        exposed[:,:,0] |= self.edge_blocks(dz=-1)<<2 #back edge
+#        exposed[:,:,-1] |= self.edge_blocks(dz=1)<<3 #front edge
+        exposed[:,:-1,:] |= air[:,1:,:]<<7 #up
+        exposed[:,1:,:] |= air[:,:-1,:]<<6 #down
+        exposed[1:,:,:] |= air[:-1,:,:]<<5 #left
+        exposed[:-1,:,:] |= air[1:,:,:]<<4 #right
+        exposed[:,:,:-1] |= air[:,:,1:]<<3 #forward
+        exposed[:,:,1:] |= air[:,:,:-1]<<2 #back
+        self.exposed = exposed*(~air)
+
+    def _calc_vertex_data(self,position):
+        self._calc_exposed_faces()
+        sh = self.exposed.shape
+        exposed = self.exposed.swapaxes(0,2).reshape(sh[0]*sh[1]*sh[2])
+        egz = exposed>0
+        pos = SECTOR_GRID[egz] + position
+        exposed = exposed[egz]
+        exposed = numpy.unpackbits(exposed[:,numpy.newaxis],axis=1)
+        exposed = numpy.array(exposed,dtype=bool)
+        exposed = exposed[:,:6]
+        #b = self[pos]
+        p = (pos - numpy.array(position)).T
+        b = self.blocks[p[0],p[1],p[2]]
+        texture_data = BLOCK_TEXTURES[b]
+        color_data = BLOCK_COLORS[b]
+        normal_data = numpy.tile(BLOCK_NORMALS,(len(b),1,4))#*exposed_light[:,:,numpy.newaxis]
+        vertex_data = 0.5*BLOCK_VERTICES[b] + numpy.tile(pos,4)[:,numpy.newaxis,:]
+
+        v = vertex_data[exposed].ravel()
+        t = texture_data[exposed].ravel()
+        n = normal_data[exposed].ravel()
+        c = color_data[exposed].ravel()
+        count = len(v)/3
+
+        self.vt_data = (count, v, t, n, c)
+        
+        
 
 class SectorProxy(object):
     def __init__(self, position, group, model, shown=True):
@@ -88,7 +192,10 @@ class ModelProxy(object):
         self.n_requests = 0
         self.n_responses = 0
 
-        self.client = multiprocessing.connection.Client(address = (config.SERVER_IP,config.SERVER_PORT), authkey = 'password')
+        if config.SERVER_IP == None:
+            self.loader = SectorLoader()
+        else:
+            self.loader = multiprocessing.connection.Client(address = (config.SERVER_IP,config.SERVER_PORT), authkey = 'password')
 
     def __getitem__(self, position):
         """
@@ -145,17 +252,17 @@ class ModelProxy(object):
                 self.sectors_pos = sorted(self.sectors_pos)
             if len(self.sectors_pos)>0:
                 spos = self.sectors_pos.pop(0)[1]
-                self.client.send(['request_sector',spos])
+                print 'requesting sector',spos
+                self.loader.send(['request_sector',spos])
                 self.n_requests += 1
-        if self.client.poll():
-#            spos, vt_data, blocks = self.client.recv()
-            spos, vt_data, blocks = cPickle.loads(self.client.recv_bytes())
+        if self.loader.poll():
+            spos, blocks, vt_data = self.loader.recv()
             self.n_responses+=1
             print 'recv',spos,len(vt_data[1])
             s = SectorProxy(spos,self.group,self)
-            s.blocks = blocks
+            s.blocks[:,:,:] = blocks
             s.vt_data = vt_data
-            self.sectors[spos] = s
+            self.sectors[sectorize(spos)] = s
             s.check_show()
             ##add the sector to the worldproxy
 
@@ -202,5 +309,4 @@ class ModelProxy(object):
 
     def quit(self,kill_server=True):
         if kill_server:
-            self.client.send(['kill',0])
-        self.client.close()
+            self.loader.send(['quit',0])
