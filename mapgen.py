@@ -19,14 +19,14 @@ class SectorNoise2D(object):
         self.step = step
         self.scale = scale
         self.offset = offset
-        Z = numpy.mgrid[0:SECTOR_SIZE,0:SECTOR_SIZE].T
+        Z = numpy.mgrid[-1:SECTOR_SIZE+1,-1:SECTOR_SIZE+1].T #overgenerate by one block in each direction
         shape = Z.shape
         self.Z = Z.reshape((shape[0]*shape[1],2))+step_offset
 
     def __call__(self, position):
         Z = self.Z + numpy.array([position[0],position[2]])
         N=self.noise.noise(Z/self.step)*self.scale + self.offset
-        return N.reshape((SECTOR_SIZE,SECTOR_SIZE))
+        return N.reshape((SECTOR_SIZE+2,SECTOR_SIZE+2))
 
 def initialize_map_generator():
     global noise1, noise2, noise3, noise4
@@ -62,7 +62,7 @@ def generate_sector(position, sector, world):
     N1 = N1*N4+N3
     N2 = N2+N3
 
-    b = numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE,SECTOR_SIZE),dtype='u2')
+    b = numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE + 2,SECTOR_SIZE + 2),dtype='u2')
     for y in range(SECTOR_HEIGHT):
         b[y] = ((y<N1-3)*STONE + (((y>=N1-3) & (y<N1))*GRASS))
         thresh = ((y>N3)*(y<N2)*(y>10))>0
