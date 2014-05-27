@@ -42,15 +42,16 @@ class SectorLoader(object):
         self.process.start()
 
     def _loader(self):
+        print('loader started')
         mapgen.initialize_map_generator()
         while True:
-            print 'loader started'
             try:
                 msg, data = self._pipe.recv()
                 print('received', msg, data)
             except:
                 return
             if msg == 'quit':
+                print('loader terminated by owner')
                 return
             if msg == 'request_sector':
                 pos = (data[0], -40, data[2])
@@ -206,6 +207,12 @@ class ModelProxy(object):
         except:
             return None
 
+    def add_block(self, position, block):
+        pass
+        
+    def remove_block(self, position):
+        pass
+        
     def draw(self, position, (center, radius)):
         #t = time.time()
         draw_invalid = True
