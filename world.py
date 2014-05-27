@@ -49,13 +49,13 @@ def _initialize_map_generator():
     GAIN_SCALE = 5
     GAIN_OFFSET = 5
     seed = int(time.time())
-    noise1 = SectorNoise2D(seed = seed+12, step = HILL_STEP, 
+    noise1 = SectorNoise2D(seed = seed+12, step = HILL_STEP, step_offset = 30,  
         scale = HILL_SCALE, offset = HILL_OFFSET)
-    noise2 = SectorNoise2D(seed = seed+16, step = HILL_STEP, 
+    noise2 = SectorNoise2D(seed = seed+16, step = HILL_STEP, step_offset = 900,
         scale = HILL_SCALE, offset = HILL_OFFSET)
-    noise3 = SectorNoise2D(seed = seed+14, step = CONTINENTAL_STEP, 
+    noise3 = SectorNoise2D(seed = seed+14, step = CONTINENTAL_STEP, step_offset = 531,
         scale = CONTINENTAL_SCALE, offset = CONTINENTAL_OFFSET)
-    noise4 = SectorNoise2D(seed = seed+18, step = GAIN_STEP, 
+    noise4 = SectorNoise2D(seed = seed+18, step = GAIN_STEP, step_offset = 8123,
         scale = GAIN_SCALE, offset = GAIN_OFFSET)
 
 class Sector(object):
