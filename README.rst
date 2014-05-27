@@ -6,20 +6,7 @@ minepy
    :scale: 50 %
 
 
-A fork of fogleman's simple Minecraft-inspired demo written in Python.
-
-https://github.com/fogleman/minecraft
-
-
-Goals and Vision
-==================
-
-To be a simple engine for building minecraft like games using python
-
-Technical
------------
-
-Uses pyglet to render the graphics and numpy for its powerful and fast array processing.
+A fork of fogleman's simple Minecraft-inspired demo (https://github.com/fogleman/minecraft) written in Python being developed for and with the 6 and 7 year olds.
 
 Known Issues
 ------------
@@ -30,6 +17,14 @@ Known Issues
 2. Lighting is very simple, no shadows or dark areas of the terrain yet. (The "light" branch has a very rudimentary
    and incomplete attempt at implementing terrain shadows.)
 3. Nothing is saved, but I plan to save changed sectors to a level DB database
+
+Technical
+-----------
+
+Uses pyglet to render the graphics and numpy for its powerful and fast array processing. 
+Has much better performance than fogleman's original version and world size is unlimited.
+
+Currently uses minecraft style textures and you can easily add new block types. Take a look at blocks.py
 
 
 How to Run
@@ -103,7 +98,9 @@ Quitting
 Licenses
 ========
 
-Code - GPLv3
+Code 
+
+Copyright (C) 2014 by Damien Moore and licensed GPLv3
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -118,7 +115,27 @@ Code - GPLv3
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+Original Sources Copyright (C) 2013 Michael Fogleman
+
+    Permission is hereby granted, free of charge, to any person obtaining
+    a copy of this software and associated documentation files (the "Software"), 
+    to deal in the Software without restriction, including without limitation 
+    the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included 
+    in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
 Texture Pack - Faithful Venom v1.5
 
-	Faith Venom is licensed CC BY-NC-SA 3.0
-	http://minecraft.curseforge.com/texture-packs/51244-faithfulvenom-32x-32x
+    Faith Venom is licensed CC BY-NC-SA 3.0
+    http://minecraft.curseforge.com/texture-packs/51244-faithfulvenom-32x-32x
