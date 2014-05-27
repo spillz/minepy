@@ -22,7 +22,7 @@ SH = SECTOR_GRID.shape
 SECTOR_GRID = SECTOR_GRID.reshape((SH[0]*SH[1]*SH[2],3))
 
 class SectorNoise2D(object):
-    def __init__(self, seed, step, scale, offset):
+    def __init__(self, seed, step = SECTOR_SIZE, step_offset = 0, scale = 1, offset = 0):
         self.noise = noise.SimplexNoise(seed = seed)
         self.seed = seed
         self.step = step
@@ -30,7 +30,7 @@ class SectorNoise2D(object):
         self.offset = offset
         Z = numpy.mgrid[0:SECTOR_SIZE,0:SECTOR_SIZE].T
         shape = Z.shape
-        self.Z = Z.reshape((shape[0]*shape[1],2))
+        self.Z = Z.reshape((shape[0]*shape[1],2))+step_offset
 
     def __call__(self, position):
         Z = self.Z + numpy.array([position[0],position[2]])
