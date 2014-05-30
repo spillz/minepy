@@ -23,7 +23,7 @@ import util
 from config import DIST, TICKS_PER_SEC, FLYING_SPEED, GRAVITY, JUMP_SPEED, \
         MAX_JUMP_HEIGHT, PLAYER_HEIGHT, TERMINAL_VELOCITY, TICKS_PER_SEC, \
         WALKING_SPEED
-from blocks import BLOCK_ID
+from blocks import BLOCK_ID, BLOCK_TEXTURES, BLOCK_VERTICES
 
 
 class Window(pyglet.window.Window):
@@ -31,11 +31,13 @@ class Window(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super(Window, self).__init__(*args, **kwargs)
 
+
         # Whether or not the window exclusively captures the mouse.
         self.exclusive = False
 
         # When flying gravity has no effect and speed is increased.
-        self.flying = True
+        self.flying = False
+        self.fly_climb = 0
 
         # Strafing is moving lateral to the direction you are facing,
         # e.g. moving to the left or right while continuing to face forward.
@@ -47,7 +49,7 @@ class Window(pyglet.window.Window):
 
         # Current (x, y, z) position in the world, specified with floats. Note
         # that, perhaps unlike in math class, the y-axis is the vertical axis.
-        self.position = (0, 20, 0)
+        self.position = (0, 200, 0)
 
         # First element is rotation of the player in the x-z plane (ground
         # plane) measured from the z-axis down. The second is the rotation
@@ -62,6 +64,9 @@ class Window(pyglet.window.Window):
 
         # The crosshairs at the center of the screen.
         self.reticle = None
+
+        self.inventory_batch = pyglet.graphics.Batch()
+        self.inventory_item = None
 
         # Velocity in the y (upward) direction.
         self.dy = 0
@@ -79,6 +84,10 @@ class Window(pyglet.window.Window):
 
         # Instance of the model that handles the world.
         self.model = world.Model()
+
+        self.inventory_group = util.InventoryGroup(parent = self.model.group)
+#        line_group = util.LineDrawGroup(thickness = 3)
+#        self.inventory_outline_group = util.InventoryOutlineGroup(parent = line_group)
 
         # The label that is displayed in the top left of the canvas.
         self.label = pyglet.text.Label('', font_name='Arial', font_size=18,
@@ -127,8 +136,8 @@ class Window(pyglet.window.Window):
         if any(self.strafe):
             x, y = self.rotation
             strafe = math.degrees(math.atan2(*self.strafe))
-            y_angle = math.radians(y)
-            x_angle = math.radians(x + strafe)
+            y_angle = math.radians(y)*any(self.strafe)
+            x_angle = math.radians(x + strafe)*any(self.strafe)
             if self.flying:
                 m = math.cos(y_angle)
                 dy = math.sin(y_angle)
@@ -151,6 +160,8 @@ class Window(pyglet.window.Window):
             dy = 0.0
             dx = 0.0
             dz = 0.0
+        if self.flying and self.fly_climb!=0:
+            dy = self.fly_climb
         return (dx, dy, dz)
 
     def update(self, dt):
@@ -166,7 +177,7 @@ class Window(pyglet.window.Window):
 #        self.model.process_queue()
         sector = util.sectorize(self.position)
         if sector != self.sector:
-            print 'changing sectors',self.sector,'to',sector
+            print('changing sectors',self.sector,'to',sector)
             self.model.change_sectors(self.sector, sector)
             self.sector = sector
         m = 20
@@ -258,6 +269,7 @@ class Window(pyglet.window.Window):
         if ind < 0:
             ind += len(self.inventory)
         self.block = self.inventory[ind]
+        self.update_inventory_item_batch()
 
     def on_mouse_press(self, x, y, button, modifiers):
         """ Called when a mouse button is pressed. See pyglet docs for button
@@ -283,7 +295,9 @@ class Window(pyglet.window.Window):
                     ((button == mouse.LEFT) and (modifiers & key.MOD_CTRL)):
                 # ON OSX, control + left click = right click.
                 if previous:
-                    self.model.sectors[util.sectorize(previous)].add_block(previous, BLOCK_ID[self.block])
+                    px, py, pz = util.normalize(self.position)
+                    if not (previous == (px, py, pz) or previous == (px, py-1, pz)):
+                        self.model.sectors[util.sectorize(previous)].add_block(previous, BLOCK_ID[self.block])
 #
 #                    self.model.add_block(previous, self.block)
             elif button == pyglet.window.mouse.LEFT and block:
@@ -333,8 +347,13 @@ class Window(pyglet.window.Window):
         elif symbol == key.D:
             self.strafe[1] += 1
         elif symbol == key.SPACE:
+            if self.flying:
+                self.fly_climb += 1
             if self.dy == 0:
                 self.dy = JUMP_SPEED
+        elif symbol == key.LSHIFT:
+            if self.flying:
+                self.fly_climb -= 1
         elif symbol == key.ESCAPE:
             self.set_exclusive_mouse(False)
         elif symbol == key.TAB:
@@ -342,6 +361,7 @@ class Window(pyglet.window.Window):
         elif symbol in self.num_keys:
             index = (symbol - self.num_keys[0]) % len(self.inventory)
             self.block = self.inventory[index]
+            self.update_inventory_item_batch()
 
     def on_key_release(self, symbol, modifiers):
         """ Called when the player releases a key. See pyglet docs for key
@@ -363,6 +383,10 @@ class Window(pyglet.window.Window):
             self.strafe[1] += 1
         elif symbol == key.D:
             self.strafe[1] -= 1
+        elif symbol == key.SPACE:
+            self.fly_climb = 0
+        elif symbol == key.LSHIFT:
+            self.fly_climb = 0
 
     def on_resize(self, width, height):
         """ Called when the window is resized to a new `width` and `height`.
@@ -378,6 +402,33 @@ class Window(pyglet.window.Window):
         self.reticle = pyglet.graphics.vertex_list(4,
             ('v2i', (x - n, y, x + n, y, x, y - n, x, y + n))
         )
+        #inventory item
+        self.update_inventory_item_batch()
+    
+    def update_inventory_item_batch(self):
+        size = 64
+        if self.inventory_item is not None:
+            self.inventory_item.delete()
+#            self.inventory_item_outline.delete()
+        #texture cube
+        t = BLOCK_TEXTURES[BLOCK_ID[self.block]][:6].ravel()
+        v = size/2+size/2*BLOCK_VERTICES[BLOCK_ID[self.block]] + numpy.tile(numpy.array([16,16+size/2,0]),4)
+        v = v.ravel()
+        c = 255*numpy.array([1,1,1, 1,1,1, 1,1,1, 1,1,1]).repeat(6)
+        self.inventory_item = self.inventory_batch.add(len(t)/2, gl.GL_QUADS, self.inventory_group,
+            ('v3f/static', v),
+            ('t2f/static', t),
+            ('c3B/static', c),
+        )
+        #outline
+#        v = size/2+(size/2+0.1)*BLOCK_VERTICES[BLOCK_ID[self.block]] + numpy.tile(numpy.array([16,16+size/2,0]),4)
+#        v = numpy.hstack((v[:,:3],v,v[:,-3:]))
+#        v = v.ravel()
+#        c = 1*numpy.array([1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1]).repeat(6)
+#        self.inventory_item_outline = self.inventory_batch.add(len(v)/3, gl.GL_LINE_STRIP, self.inventory_outline_group,
+#            ('v3f/static', v),
+#            ('c3B/static', c),
+#        )        
 
     def set_2d(self):
         """ Configure OpenGL to draw in 2d.
@@ -388,7 +439,7 @@ class Window(pyglet.window.Window):
         gl.glViewport(0, 0, width, height)
         gl.glMatrixMode(gl.GL_PROJECTION)
         gl.glLoadIdentity()
-        gl.glOrtho(0, width, 0, height, -1, 1)
+        gl.glOrtho(0, width, 0, height, -200, 200)
         gl.glMatrixMode(gl.GL_MODELVIEW)
         gl.glLoadIdentity()
 
@@ -452,6 +503,7 @@ class Window(pyglet.window.Window):
         self.set_2d()
         self.draw_label()
         self.draw_reticle()
+        self.draw_inventory_item()
 
     def draw_focused_block(self):
         """ Draw black edges around the block that is currently under the
@@ -465,10 +517,12 @@ class Window(pyglet.window.Window):
             vertex_data=[]
             for v in util.cube_v([x, y, z], 0.51):
                 vertex_data.extend(v)
+            gl.glLineWidth(3)
             gl.glColor3d(0, 0, 0)
             gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
             pyglet.graphics.draw(24, gl.GL_QUADS, ('v3f/static', vertex_data))
             gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
+            gl.glLineWidth(1)
 
     def draw_label(self):
         """ Draw the label in the top left of the screen.
@@ -486,6 +540,10 @@ class Window(pyglet.window.Window):
         """
         gl.glColor3d(0, 0, 0)
         self.reticle.draw(gl.GL_LINES)
+
+    def draw_inventory_item(self):
+        self.inventory_batch.draw()
+
 
 
 def setup_fog():
