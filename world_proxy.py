@@ -98,7 +98,6 @@ class SectorLoader(object):
 
     def _calc_exposed_faces(self):
         #TODO: The 3D bitwise ops are slow
-        t = time.time()
         air = BLOCK_SOLID[self.blocks] == 0
 
         light = numpy.cumproduct(air[:,::-1,:], axis=1)[:,::-1,:]
@@ -210,6 +209,8 @@ class ModelProxy(object):
 
         # The world is stored in sector chunks.
         self.sectors = {}
+        self.update_sectors_pos = []
+        self.update_ref_pos = None
         self.sector_lock = threading.Lock()
         self.thread = None
 
@@ -273,10 +274,9 @@ class ModelProxy(object):
         """
         if self.n_requests <= self.n_responses:
             new = sectorize(new)
-            if old is not None:
-                old = sectorize(old)
-            if old != new:
-                self.sectors_pos = []
+            if self.update_ref_pos != new:
+                self.update_ref_pos = new
+                self.update_sectors_pos = []
                 G = range(-LOADED_SECTORS,LOADED_SECTORS+1)
                 for dx,dy,dz in itertools.product(G,(0,),G):
                     pos = numpy.array([new[0],new[1],new[2]]) \
@@ -284,16 +284,16 @@ class ModelProxy(object):
                     pos = sectorize(pos)
                     dist = (pos[0]-new[0])**2 + (pos[2]-new[2])**2
                     if pos not in self.sectors:
-                        self.sectors_pos.append((dist,pos))
+                        self.update_sectors_pos.append((dist,pos))
                 for s in list(self.sectors):
                     if (new[0] - s[0])**2 + (new[2] - s[2])**2 > (LOADED_SECTORS*SECTOR_SIZE)**2:
                         print('dropping sector',s)
                         if self.sectors[s].vt:
                             self.sectors[s].vt.delete()
                         del self.sectors[s]
-                self.sectors_pos = sorted(self.sectors_pos)
-            if len(self.sectors_pos)>0:
-                spos = self.sectors_pos.pop(0)[1]
+                self.update_sectors_pos = sorted(self.update_sectors_pos)
+            if len(self.update_sectors_pos)>0:
+                spos = self.update_sectors_pos.pop(0)[1]
                 print('requesting sector',spos)
                 self.loader.send(['request_sector',spos])
                 self.n_requests += 1
