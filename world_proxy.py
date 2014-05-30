@@ -214,6 +214,7 @@ class ModelProxy(object):
         self.sector_lock = threading.Lock()
         self.thread = None
 
+        self.loader_requests = []
         self.n_requests = 0
         self.n_responses = 0
 
@@ -237,7 +238,7 @@ class ModelProxy(object):
             s = self.sectors[spos]
             blocks = s.blocks
             #if position is at edge of block, update neighboring block as well
-            self.loader.send(['add_block',[spos, position, block, blocks]])
+            self.loader_requests.insert(0,['add_block',[spos, position, block, blocks]])
         
     def remove_block(self, position):
         spos = sectorize(position)
@@ -245,7 +246,7 @@ class ModelProxy(object):
             s = self.sectors[spos]
             blocks = s.blocks
             print('remove',spos,position)
-            self.loader.send(['remove_block',[spos, position, blocks]])
+            self.loader_requests.insert(0,['remove_block',[spos, position, blocks]])
         
     def draw(self, position, (center, radius)):
         #t = time.time()
@@ -295,12 +296,21 @@ class ModelProxy(object):
             if len(self.update_sectors_pos)>0:
                 spos = self.update_sectors_pos.pop(0)[1]
                 print('requesting sector',spos)
-                self.loader.send(['request_sector',spos])
+                try:
+                    req_pos = [r[0] for r in self.loader_requests].index('request_sector') #insert job below higher priority jobs
+                except ValueError:
+                    req_pos = -1
+                self.loader_requests.insert(req_pos,['request_sector',spos])
+            if len(self.loader_requests)>0:
+                self.loader_time = time.time()
                 self.n_requests += 1
+                self.loader.send(self.loader_requests.pop(0))
+
         if self.loader.poll():
             spos, blocks, vt_data = self.loader.recv()
             self.n_responses = self.n_requests
-            print('recv',spos,len(vt_data[1]))
+            print('recv', spos, len(vt_data[1]))
+            print('took', time.time()-self.loader_time)
             if spos in self.sectors:
                 print('setting sector data')
                 s = self.sectors[spos]
@@ -313,7 +323,6 @@ class ModelProxy(object):
                 s.vt_data = vt_data
                 self.sectors[sectorize(spos)] = s
                 s.invalidate()
-            ##add the sector to the worldproxy
 
     def hit_test(self, position, vector, max_distance=8):
         """ Line of sight search from current position. If a block is
@@ -358,4 +367,6 @@ class ModelProxy(object):
 
     def quit(self,kill_server=True):
         if kill_server:
+            if self.n_requests > self.n_responses:
+                self.loader.recv()
             self.loader.send(['quit',0])
