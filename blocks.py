@@ -1,5 +1,5 @@
 import numpy
-from util import tex_coords, FACES, cb_v, de_v
+from util import tex_coords, FACES, cb_v, de_v, cb_v_half, cb_v_cake
 
 TEXTURE_PATH = 'texture_fv.png'
 
@@ -69,6 +69,44 @@ class Rose(Decoration, Block):
 class GobbleDeBlock(Block):
     name = 'Gobbledeblock'
     coords = ((9,14), (13,1), (13,8), (8,9), (15,5), (0,12))
+
+class IronOre(Block):
+    name = 'Iron Ore'
+    coords = ((1,13),)
+
+class GoldOre(Block):
+    name = 'Gold Ore'
+    coords = ((0,13),)
+
+class CoalOre(Block):
+    name = 'Coal Ore'
+    coords = ((2,13),)
+
+class DiamondOre(Block):
+    name = 'Iron Ore'
+    coords = ((2,12),)
+
+class RedstoneOre(Block):
+    name = 'Redstone Ore'
+    coords = ((3,12),)
+
+class EmeraldOre(Block):
+    name = 'Emerald Ore'
+    coords = ((11,5),)
+
+class Bookshelf(Block):
+    name = 'Bookshelf'
+    coords = ((4,15), (4,15), (3,13))
+
+class TNT(Block):
+    name = 'TNT'
+    coords = ((9,15), (10,15), (8,15))
+
+class Cake(Block):
+    name = 'Cake'
+    coords = ((9,8), (12,8), (10,8))
+    vertices = cb_v_cake
+    solid = False
 
 i = 1
 BLOCKS = [b for b in Block.__subclasses__() if b.name != None]
