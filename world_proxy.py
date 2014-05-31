@@ -238,15 +238,20 @@ class ModelProxy(object):
             s = self.sectors[spos]
             blocks = s.blocks
             #if position is at edge of block, update neighboring block as well
-            self.loader_requests.insert(0,['add_block',[spos, position, block, blocks]])
+            if config.SERVER_IP is not None:
+                self.loader_requests.insert(0,['add_block',[position, block]])
+            else:
+                self.loader_requests.insert(0,['add_block',[spos, position, block, blocks]])
         
     def remove_block(self, position):
         spos = sectorize(position)
         if spos in self.sectors:
             s = self.sectors[spos]
             blocks = s.blocks
-            print('remove',spos,position)
-            self.loader_requests.insert(0,['remove_block',[spos, position, blocks]])
+            if config.SERVER_IP is not None:
+                self.loader_requests.insert(0,['remove_block',[position]])
+            else:
+                self.loader_requests.insert(0,['remove_block',[spos, position, blocks]])
         
     def draw(self, position, (center, radius)):
         #t = time.time()

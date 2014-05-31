@@ -143,8 +143,8 @@ class Sector(object):
 
             self.vt_data = (count, v, t, n, c)
 
-    def add_block(self, position, texture):
-        """ Add a block with the given `texture` and `position` to the world.
+    def set_block(self, position, block_id):
+        """ Set a block in the sector at `position` to `block_id`.
 
         Parameters
         ----------
@@ -154,22 +154,8 @@ class Sector(object):
             The coordinates of the texture squares. Use `tex_coords()` to
             generate.
         """
-        position = normalize(position)
-#        if self[position] != 0:
-#            self.remove_block(position, immediate)
-        self[position] = texture
-        self.update_block(position)
-        self.model.check_neighbors(position)
-
-    def remove_block(self, position):
-        """ Remove the block at the given `position`.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to remove.
-        """
-        self[position] = 0
+        self[position] = block_id
+        self.invalidate()
         self.update_block(position)
         self.model.check_neighbors(position)
 
@@ -277,6 +263,33 @@ class Model(object):
             print 'sector creation',spos,'timings',t1-t0,t2-t1,t3-t2,t4-t3,t5-t4
         return self.sectors[spos].vt_data, self.sectors[spos].blocks
 
+    def set_block(self, position, block):
+        position = normalize(position)
+        spos = sectorize(position)
+        result = []
+        result.append(self._set_block(spos, position, block))
+        if position[0] - spos[0] == 0:
+            nspos = sectorize((position[0]-1, position[1], position[2]))
+            result.append(self._set_block(nspos, position, block))
+        if position[0] - spos[0] == SECTOR_SIZE-1:
+            nspos = sectorize((position[0]+1, position[1], position[2]))
+            result.append(self._set_block(nspos, position, block))
+        if position[2] - spos[2] == 0:
+            nspos = sectorize((position[0], position[1], position[2]-1))
+            result.append(self._set_block(nspos, position, block))
+        if position[2] - spos[2] == SECTOR_SIZE-1:
+            nspos = sectorize((position[0], position[1], position[2]+1))
+            result.append(self._set_block(nspos, position, block))
+        return result
+
+    def _set_block(self, spos, position, block):
+        if spos not in self.sectors:
+            return None
+        s = self.sectors[spos]
+        s.set_block(position, block)
+        s.calc_vertex_data()
+        return spos, s.vt_data, s.blocks
+        
     def hit_test(self, position, vector, max_distance=8):
         """ Line of sight search from current position. If a block is
         intersected it is returned, along with the block previously in the line
@@ -363,19 +376,16 @@ class Server(object):
                             sector_data, blocks = self.world.request_sector(spos)
                             print('sending sector data',spos)
                             conn.send_bytes(cPickle.dumps([spos, blocks, sector_data],-1))
-                            #conn.send([spos, sector_data, blocks])
                         if msg == 'add_block':
                             pos, block = data
-#                            sector_data, blocks = self.world.request_sector(spos)
-#                            print('sending sector data',spos)
-#                            conn.send_bytes(cPickle.dumps([spos, blocks, sector_data],-1))
-                            #conn.send([spos, sector_data, blocks])
+                            for spos, sector_data, blocks in self.world.set_block(pos, block):
+                                print('sending sector data',spos)
+                                conn.send_bytes(cPickle.dumps([spos, blocks, sector_data],-1))                                
                         if msg == 'remove_block':
-                            pos = data
-#                            sector_data, blocks = self.world.request_sector(spos)
-#                            print('sending sector data',spos)
-#                            conn.send_bytes(cPickle.dumps([spos, blocks, sector_data],-1))
-                            #conn.send([spos, sector_data, blocks])
+                            pos = data[0]
+                            for spos, sector_data, blocks in self.world.set_block(pos, 0):
+                                print('sending sector data',spos)
+                                conn.send_bytes(cPickle.dumps([spos, blocks, sector_data],-1))
                         if msg == 'quit':
                             alive = False
                     except EOFError:
