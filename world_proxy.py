@@ -1,7 +1,6 @@
 # standard library imports
 import math
 import itertools
-import threading
 import time
 import numpy
 import multiprocessing.connection
@@ -16,6 +15,7 @@ from pyglet.graphics import TextureGroup
 import pyglet.gl as gl
 
 # local imports
+import world_loader
 import config
 from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS
 from util import normalize, sectorize, FACES, cube_v, cube_v2
@@ -79,13 +79,13 @@ class SectorLoader(object):
 
     def send(self, list_object):
         self.pipe.send(list_object)
-        
+
     def send_bytes(self, bytes_object):
         self.pipe.send_bytes(bytes_object)
 
     def recv(self):
         return self.pipe.recv()
-        
+
     def recv_bytes(self):
         return self.pipe.recv_bytes()
 
@@ -144,14 +144,14 @@ class SectorLoader(object):
             pos = pos.T
             return self.blocks[1:-1,:,1:-1][pos[0],pos[1],pos[2]]
         return self.blocks[1:-1,:,1:-1][pos[0],pos[1],pos[2]]
-        
+
     def set_block(self, position, sector_position, val):
         pos = position - numpy.array(sector_position)
         if len(pos.shape)>1:
             pos = pos.T
             self.blocks[1:-1,:,1:-1][pos[0],pos[1],pos[2]] = val
         self.blocks[1:-1,:,1:-1][pos[0],pos[1],pos[2]] = val
-        
+
 
 class SectorProxy(object):
     def __init__(self, position, group, model, shown=True):
@@ -189,7 +189,7 @@ class SectorProxy(object):
 
     def check_show(self,add_to_batch = True):
         if add_to_batch and self.vt_data is not None:
-            if self.vt is not None:                
+            if self.vt is not None:
                 print('deleting vt',self.position)
                 self.vt.delete()
             (count, v, t, n, c) = self.vt_data
@@ -211,17 +211,17 @@ class ModelProxy(object):
         self.sectors = {}
         self.update_sectors_pos = []
         self.update_ref_pos = None
-        self.sector_lock = threading.Lock()
-        self.thread = None
 
         self.loader_requests = []
         self.n_requests = 0
         self.n_responses = 0
 
-        if config.SERVER_IP == None:
-            self.loader = SectorLoader()
-        else:
-            self.loader = multiprocessing.connection.Client(address = (config.SERVER_IP,config.SERVER_PORT), authkey = 'password')
+        world_loader.start_loader(config.SERVER_IP)
+        self.loader = multiprocessing.connection.Client(address = (config.LOADER_IP,config.LOADER_PORT), authkey = 'password')
+#        if config.SERVER_IP == None:
+#            self.loader = SectorLoader()
+#        else:
+#            self.loader = multiprocessing.connection.Client(address = (config.SERVER_IP,config.SERVER_PORT), authkey = 'password')
 
     def __getitem__(self, position):
         """
@@ -238,31 +238,32 @@ class ModelProxy(object):
             s = self.sectors[spos]
             blocks = s.blocks
             #if position is at edge of block, update neighboring block as well
-            if config.SERVER_IP is not None:
-                self.loader_requests.insert(0,['add_block',[position, block]])
-            else:
-                self.loader_requests.insert(0,['add_block',[spos, position, block, blocks]])
-        
+            self.loader_requests.insert(0,['add_block',[position, block]])
+#            if config.SERVER_IP is not None:
+#                self.loader_requests.insert(0,['add_block',[position, block]])
+#            else:
+#                self.loader_requests.insert(0,['add_block',[spos, position, block, blocks]])
+
     def remove_block(self, position):
         spos = sectorize(position)
         if spos in self.sectors:
             s = self.sectors[spos]
             blocks = s.blocks
-            if config.SERVER_IP is not None:
-                self.loader_requests.insert(0,['remove_block',[position]])
-            else:
-                self.loader_requests.insert(0,['remove_block',[spos, position, blocks]])
-        
+            self.loader_requests.insert(0,['remove_block',[position]])
+#            if config.SERVER_IP is not None:
+#                self.loader_requests.insert(0,['remove_block',[position]])
+#            else:
+#                self.loader_requests.insert(0,['remove_block',[spos, position, blocks]])
+
     def draw(self, position, (center, radius)):
         #t = time.time()
         draw_invalid = True
-        with self.sector_lock:
-            for s in self.sectors:
-                spos = numpy.array([s[0], s[2]])+SECTOR_SIZE/2
-                if ((center-spos)**2).sum()>(radius+SECTOR_SIZE/2)**2:
-                    continue
-                if self.sectors[s].shown:
-                    draw_invalid = self.sectors[s].draw(draw_invalid)
+        for s in self.sectors:
+            spos = numpy.array([s[0], s[2]])+SECTOR_SIZE/2
+            if ((center-spos)**2).sum()>(radius+SECTOR_SIZE/2)**2:
+                continue
+            if self.sectors[s].shown:
+                draw_invalid = self.sectors[s].draw(draw_invalid)
 
     def neighbor_sectors(self, pos):
         """

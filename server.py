@@ -1,7 +1,6 @@
 # standard library imports
 import math
 import itertools
-import threading
 import time
 import numpy
 import select
@@ -50,99 +49,6 @@ class Sector(object):
             pos = pos.T
         self.blocks[pos[0],pos[1],pos[2]] = value
 
-    def update_edge(self, dx, dz, sector):
-        if self.exposed is None:
-            return
-        if dx>0:
-            b0 = (self.blocks[-1,:,:]!=0)&(BLOCK_SOLID[sector.blocks[0,:,:]]==0)
-            self.exposed[-1,:,:] |= b0 << 4 #right edge
-            self.invalidate()
-        elif dx<0:
-            b0 = (self.blocks[0,:,:]!=0)&(BLOCK_SOLID[sector.blocks[-1,:,:]]==0)
-            self.exposed[0,:,:] |= b0 << 5 #left edge
-            self.invalidate()
-        elif dz>0:
-            b0 = (self.blocks[:,:,-1]!=0)&(BLOCK_SOLID[sector.blocks[:,:,0]]==0)
-            self.exposed[:,:,-1] |= b0 << 3 #front edge
-            self.invalidate()
-        elif dz<0:
-            b0 = (self.blocks[:,:,0]!=0)&(BLOCK_SOLID[sector.blocks[:,:,-1]]==0)
-            self.exposed[:,:,0] |= b0 << 2 #back edge
-            self.invalidate()
-
-    def invalidate(self):
-        self.invalidate_vt = True
-        self.vt_data = None
-
-    def edge_blocks(self,dx=0,dz=0):
-        pos = self.position
-        try:
-            s=self.model.sectors[sectorize((pos[0]+dx*SECTOR_SIZE,pos[1],pos[2]+dz*SECTOR_SIZE))]
-        except KeyError:
-            s=None
-        if s is not None:
-            if dx>0:
-                return BLOCK_SOLID[s.blocks[0,:,:]]==0
-            elif dx<0:
-                return BLOCK_SOLID[s.blocks[-1,:,:]]==0
-            elif dz>0:
-                return BLOCK_SOLID[s.blocks[:,:,0]]==0
-            elif dz<0:
-                return BLOCK_SOLID[s.blocks[:,:,-1]]==0
-        else:
-            if dx>0:
-                return numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE),dtype=bool)
-            elif dx<0:
-                return numpy.zeros((SECTOR_HEIGHT,SECTOR_SIZE),dtype=bool)
-            elif dz>0:
-                return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
-            elif dz<0:
-                return numpy.zeros((SECTOR_SIZE,SECTOR_HEIGHT),dtype=bool)
-
-    def calc_exposed_faces(self):
-        #TODO: The 3D bitwise ops are slow
-        air = BLOCK_SOLID[self.blocks] == 0
-
-        light = numpy.cumproduct(air[:,::-1,:], axis=1)[:,::-1,:]
-
-        exposed = numpy.zeros(air.shape,dtype=numpy.uint8)
-        exposed[:,:-1,:] |= air[:,1:,:]<<7 #up
-        exposed[:,1:,:] |= air[:,:-1,:]<<6 #down
-        exposed[1:,:,:] |= air[:-1,:,:]<<5 #left
-        exposed[:-1,:,:] |= air[1:,:,:]<<4 #right
-        exposed[:,:,:-1] |= air[:,:,1:]<<3 #forward
-        exposed[:,:,1:] |= air[:,:,:-1]<<2 #back
-        self.exposed = exposed*(~air)
-
-    def calc_vertex_data(self):
-        if self.exposed == None:
-            self.calc_exposed_faces()
-        if self.vt_data == None:
-            exposed = self.exposed[1:-1,:,1:-1]
-            sh = exposed.shape
-            exposed = exposed.swapaxes(0,2).reshape(sh[0]*sh[1]*sh[2])
-            egz = exposed>0
-            pos = SECTOR_GRID[egz] + self.position
-            exposed = exposed[egz]
-            exposed = numpy.unpackbits(exposed[:,numpy.newaxis],axis=1)
-            exposed = numpy.array(exposed,dtype=bool)
-            exposed = exposed[:,:6]
-            #b = self[pos]
-            p = (pos - numpy.array(self.position)).T
-            b = self.blocks[1:-1,:,1:-1][p[0],p[1],p[2]]
-            texture_data = BLOCK_TEXTURES[b]
-            color_data = BLOCK_COLORS[b]
-            normal_data = numpy.tile(BLOCK_NORMALS,(len(b),1,4))#*exposed_light[:,:,numpy.newaxis]
-            vertex_data = 0.5*BLOCK_VERTICES[b] + numpy.tile(pos,4)[:,numpy.newaxis,:]
-
-            v = vertex_data[exposed].ravel()
-            t = texture_data[exposed].ravel()
-            n = normal_data[exposed].ravel()
-            c = color_data[exposed].ravel()
-            count = len(v)/3
-
-            self.vt_data = (count, v, t, n, c)
-
     def set_block(self, position, block_id):
         """ Set a block in the sector at `position` to `block_id`.
 
@@ -155,30 +61,6 @@ class Sector(object):
             generate.
         """
         self[position] = block_id
-        self.invalidate()
-        self.update_block(position)
-        self.model.check_neighbors(position)
-
-    def update_block(self, position):
-        """ Update the faces of the block at the given `position`.
-
-        Parameters
-        ----------
-        position : tuple of len 3
-            The (x, y, z) position of the block to show.
-        """
-        sector_pos = numpy.array(position) - self.bposition
-        x, y, z = sector_pos
-        exposed = 0
-        if self[position] != 0:
-            i=1
-            for f in FACES:
-                if not BLOCK_SOLID[self.model[numpy.array(position)+numpy.array(f)]]:
-                    exposed |= 1<<(8-i)
-                i+=1
-        if exposed != self.exposed[x,y,z]:
-            self.exposed[x,y,z] = exposed
-            self.invalidate()
 
     def _initialize(self):
         """ Initialize the sector by procedurally generating terrain using
@@ -195,21 +77,19 @@ class Model(object):
         # The world is stored in sector chunks.
         self.sectors = {}
         self.sector_cache = []
-        self.sector_lock = threading.Lock()
-        self.thread = None
 
         # Simple function queue implementation. The queue is populated with
         # _show_block() and _hide_block() calls
 #        self.queue = deque()
 
-        d = range(-SECTOR_SIZE*3,SECTOR_SIZE*3+1,SECTOR_SIZE)
-        #d = range(-128,128+1,SECTOR_SIZE)
-        for pos in itertools.product(d,(0,),d):
-            s=Sector(pos, self)
-            self.sectors[sectorize(pos)] = s
-            s._initialize()
-        for s in self.sectors:
-            self.sectors[s].calc_vertex_data()
+#        d = range(-SECTOR_SIZE*3,SECTOR_SIZE*3+1,SECTOR_SIZE)
+#        #d = range(-128,128+1,SECTOR_SIZE)
+#        for pos in itertools.product(d,(0,),d):
+#            s=Sector(pos, self)
+#            self.sectors[sectorize(pos)] = s
+#            s._initialize()
+#        for s in self.sectors:
+#            self.sectors[s].calc_vertex_data()
 
 
     def __getitem__(self, position):
@@ -241,27 +121,7 @@ class Model(object):
 
     def request_sector(self, spos):
         spos = sectorize(spos)
-        if spos in self.sectors:
-            if self.sectors[spos].vt_data == None:
-                self.sectors[spos].calc_vertex_data()
-        else:
-            t0=time.time()
-            s = Sector(spos,self)
-            t1 = time.time()
-            s._initialize()
-            t2 = time.time()
-            self.sector_cache.append(spos)
-            if len(self.sector_cache)>LOADED_SECTORS*LOADED_SECTORS+20:
-                del self.sectors[self.sector_cache.pop(0)]
-            self.sectors[spos] = s
-            t3 = time.time()
-            s.calc_vertex_data()
-            t4 = time.time()
-            for dx,dz,ns in self.neighbor_sectors(spos):
-                ns.update_edge(-dx,-dz,s)
-            t5 = time.time()
-            print 'sector creation',spos,'timings',t1-t0,t2-t1,t3-t2,t4-t3,t5-t4
-        return self.sectors[spos].vt_data, self.sectors[spos].blocks
+        return self.sectors[spos].block_data
 
     def set_block(self, position, block):
         position = normalize(position)
@@ -287,9 +147,8 @@ class Model(object):
             return None
         s = self.sectors[spos]
         s.set_block(position, block)
-        s.calc_vertex_data()
-        return spos, s.vt_data, s.blocks
-        
+        return spos, s.blocks
+
     def hit_test(self, position, vector, max_distance=8):
         """ Line of sight search from current position. If a block is
         intersected it is returned, along with the block previously in the line
@@ -347,61 +206,87 @@ class Model(object):
 #            self.update_block(key)
             self.sectors[sectorize(key)].update_block(key)
 
+class Player(object):
+    def __init__(self, conn):
+        self.conn = conn
+        self.name = 'FRED'
+        self.position = (0,0,0)
+        self.comms_queue = []
+    def __repr__(self):
+        print self.name
+
 class Server(object):
     def __init__(self):
         print('starting server at %s:%i'%(SERVER_IP,SERVER_PORT))
         self.listener = multiprocessing.connection.Listener(address = (SERVER_IP,SERVER_PORT), authkey = 'password')
-        self.connections = []
+        self.players = []
         self.world = Model()
+
+    def connections(self):
+        return [p.conn for p in self.players]
+
+    def player_from_connection(self, conn):
+        for p in self.players:
+            if conn == p.conn:
+                return p
 
     def accept_connection(self):
         conn = self.listener.accept()
-        self.connections.append(conn)
+        self.players.append(Player(conn))
         return conn
 
     def serve(self):
         alive = True
         while alive:
-            r,w,x = select.select([self.listener._listener._socket] + self.connections, [], [])
+            r,w,x = select.select([self.listener._listener._socket] + self.connections(), [], [])
             accept_new = True
-            for conn in self.connections:
-                if conn in r:
+            for p in self.players:
+                if p.conn in r:
+                    other_players = [op for op in self.players if op!=p]
                     accept_new = False
-                    print('recv from',conn)
+                    print('recv from',p.name)
                     try:
                         msg, data = conn.recv()
-                        print('client call',msg)
+                        print('msg',msg)
+                        if msg == 'set_name':
+                            used = False
+                            for op in other_players:
+                                if op.name == name:
+                                    used = True
+                            if not used:
+                                p.name = data
+                            p.conn.send_bytes(cPickle.dumps(['set_name', p.name],-1))
                         if msg == 'request_sector':
                             spos = data
-                            sector_data, blocks = self.world.request_sector(spos)
+                            blocks = self.world.request_sector(spos)
                             print('sending sector data',spos)
-                            conn.send_bytes(cPickle.dumps([spos, blocks, sector_data],-1))
-                        if msg == 'add_block':
+                            p.conn.send_bytes(cPickle.dumps([spos, blocks],-1))
+                        if msg == 'set_position':
+                            p.position = data
+                            print('sending player position',p.name,p.position)
+                            for po in other_players: #notify other players
+                                p.conn.send_bytes(cPickle.dumps(['set_position',[p.name,p.position]],-1))
+                        if msg == 'set_block':
                             pos, block = data
-                            for spos, sector_data, blocks in self.world.set_block(pos, block):
-                                print('sending sector data',spos)
-                                conn.send_bytes(cPickle.dumps([spos, blocks, sector_data],-1))                                
-                        if msg == 'remove_block':
-                            pos = data[0]
-                            for spos, sector_data, blocks in self.world.set_block(pos, 0):
-                                print('sending sector data',spos)
-                                conn.send_bytes(cPickle.dumps([spos, blocks, sector_data],-1))
+                            self.world.set_block(pos, block)
+                            for p0 in self.players: #notify ALL players
+                                p0.conn.send_bytes(cPickle.dumps(['set_block',pos, block],-1))
                         if msg == 'quit':
                             alive = False
                     except EOFError:
-                        print('Lost',conn)
-                        self.connections.remove(conn)
+                        p = self.player_from_connection(conn)
+                        print('lost',p)
+                        self.players.remove(p)
             if accept_new:
                 conn = self.accept_connection()
                 print('accept',conn)
         self.listener.close()
 
 if __name__ == '__main__':
+    SERVER_IP = 'localhost'
     if len(sys.argv)>1:
         if sys.argv[1] == 'LAN':
             SERVER_IP = get_network_ip()
-        else:
-            SERVER_IP = 'localhost'
     #TODO: use a config file for server settings
     #TODO: use argparse module to override default server settings
     s = Server()
