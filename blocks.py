@@ -3,7 +3,9 @@ from util import tex_coords, FACES, cb_v, de_v, cb_v_half, cb_v_cake
 
 TEXTURE_PATH = 'texture_fv.png'
 
+gr = [40,200,50]
 white = numpy.tile(numpy.array([255,255,255]),6*4).reshape(6,3*4)
+green = numpy.tile(numpy.array(gr),6*4).reshape(6,3*4)
 grass_top = numpy.array([30,220,30]*4+[255,255,255]*5*4).reshape(6,3*4)
 
 
@@ -24,22 +26,32 @@ class DirtWithGrass(Block):
     coords = ((0, 15), (2, 15), (3, 15))
     colors = grass_top
 
+class Leaves(Block):
+    name = 'Leaves'
+    coords = ((4, 7), )
+    colors = green
+    solid = False
+
 class Sand(Block):
     name = 'Sand'
     coords = ((2, 14), (2, 14), (2, 14))
-    
+
 class Brick(Block):
     name = 'Brick'
     coords = ((7, 15), (7, 15), (7, 15)) #3 brick
-    
+
 class Stone(Block):
     name = 'Stone'
+    coords = ((1,15), )
+
+class CobbleStone(Block):
+    name = 'Cobblestone'
     coords = ((0, 14), (0, 14), (0, 14))  #4 stone
-    
+
 class IronBlock(Block):
     name = 'Iron Block'
     coords = ((6, 14),)
-    
+
 class Wood(Block):
     name = 'Wood'
     coords = ((5, 14), (5, 14), (4, 14))  #5 wood
@@ -47,19 +59,19 @@ class Wood(Block):
 class Plank(Block):
     name = 'Plank'
     coords = ((4, 15), (4, 15), (4, 15))  #6 plank
-    
+
 class CraftingTable(Block):
     name = 'Crafting Table'
-    coords = ((11, 13), (4,15), (11, 12), (11, 12), (12, 12))  
-    
+    coords = ((11, 13), (4,15), (11, 12), (11, 12), (12, 12))
+
 class Pumpkin(Block):
     name = 'Pumpkin'
-    coords = ((6, 9), (6, 8), (7, 8), (6,8)) 
-    
+    coords = ((6, 9), (6, 8), (7, 8), (6,8))
+
 class JackOLantern(Block):
     name = 'Jack O\'Lantern'
-    coords = ((6, 9), (6, 8), (8, 8), (6,8)) 
-    
+    coords = ((6, 9), (6, 8), (8, 8), (6,8))
+
 class Rose(Decoration, Block):
     name = 'Rose'
     coords = ((12,15), (12,15), (12,15))
