@@ -313,22 +313,25 @@ class ModelProxy(object):
                 self.loader.send(self.loader_requests.pop(0))
 
         if self.loader.poll():
-            spos, blocks, vt_data = self.loader.recv()
-            self.n_responses = self.n_requests
-            print('recv', spos, len(vt_data[1]))
-            print('took', time.time()-self.loader_time)
-            if spos in self.sectors:
-                print('setting sector data')
-                s = self.sectors[spos]
-                s.blocks[:,:,:] = blocks
-                s.vt_data = vt_data
-                s.invalidate()
-            else:
-                s = SectorProxy(spos,self.group,self)
-                s.blocks[:,:,:] = blocks
-                s.vt_data = vt_data
-                self.sectors[sectorize(spos)] = s
-                s.invalidate()
+            try:
+                spos, blocks, vt_data = self.loader.recv()
+                self.n_responses = self.n_requests
+                print('recv', spos, len(vt_data[1]))
+                print('took', time.time()-self.loader_time)
+                if spos in self.sectors:
+                    print('setting sector data')
+                    s = self.sectors[spos]
+                    s.blocks[:,:,:] = blocks
+                    s.vt_data = vt_data
+                    s.invalidate()
+                else:
+                    s = SectorProxy(spos,self.group,self)
+                    s.blocks[:,:,:] = blocks
+                    s.vt_data = vt_data
+                    self.sectors[sectorize(spos)] = s
+                    s.invalidate()
+            except EOFError:
+                print('loader returned EOF')
 
     def hit_test(self, position, vector, max_distance=8):
         """ Line of sight search from current position. If a block is

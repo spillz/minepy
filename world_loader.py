@@ -1,5 +1,5 @@
 '''
-world_loader.py -- manages client side terrain generation, world data caching, syncing with server
+world_loader.py -- manages client side terrain generation, world data caching, syncing with multi-player server
 '''
 
 # standard library imports
@@ -200,19 +200,27 @@ class Model(object):
             t1 = time.time()
             s._initialize()
             t2 = time.time()
+##Eventually need to turn this back on, but the logic isn't right (should be dropping positions that are "far" from active players)
+#            if len(self.sector_cache)>LOADED_SECTORS*LOADED_SECTORS+20:
+#                sp = self.sector_cache.pop(0)
+#                if (sp[0] - spos[0])**2 + (sp[2] - spos[2])**2 < LOADED_SECTORS*LOADED_SECTORS:
+#                    self.sector_cache.append(sp)
+#                else:
+#                    print('dropping',self.sector_cache[0])
+#                    print('***',len(self.sector_cache))
+#                    del self.sectors[sp]
             self.sector_cache.append(spos)
-            if len(self.sector_cache)>LOADED_SECTORS*LOADED_SECTORS+20:
-                del self.sectors[self.sector_cache.pop(0)]
             self.sectors[spos] = s
             t3 = time.time()
             s.calc_vertex_data()
             t4 = time.time()
-            print 'sector creation',spos,'timings',t1-t0,t2-t1,t3-t2,t4-t3
+            print('sector creation',spos,'timings',t1-t0,t2-t1,t3-t2,t4-t3)
         return self.sectors[spos].vt_data, self.sectors[spos].blocks
 
     def set_block(self, position, block):
         position = normalize(position)
         spos = sectorize(position)
+        print('set block',spos, position)
         result = []
         result.append(self._set_block(spos, position, block))
         if position[0] - spos[0] == 0:
@@ -231,6 +239,7 @@ class Model(object):
 
     def _set_block(self, spos, position, block):
         if spos not in self.sectors:
+            ##TODO: This causes a fatal error
             return None
         s = self.sectors[spos]
         s.set_block(position, block)
