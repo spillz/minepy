@@ -123,7 +123,7 @@ class ClientServerConnection(object):
         self.handler.register_function('player_set_name',self.player_set_name)
         self.handler.register_function('player_set_postion',self.player_set_position)
         self.handler.register_function('player_set_block',self.player_set_block)
-        self.handler.register_function('updated_sector_blocks',self.updated_sector_blocks)
+        self.handler.register_function('sector_blocks_changed',self.sector_blocks_changed)
         self.handler.communicate_loop()
 
     def player_set_name(self, player, name):
@@ -145,18 +145,18 @@ class ClientServerConnection(object):
     def player_set_block(self, player, position, block):
         '''
         `player` has added `block` at `position`
-        client should add that block to its map delta
+        client should add that block to its map
         '''
         for spos, vt_data, blocks in self.world.set_block(position, block):
             self.handler.send_client('sector_blocks', spos, blocks, vt_data)
         
-    def updated_sector_blocks(self, player, sector_position, sector_blocks_delta):
+    def sector_blocks_changed(self, player, sector_position, sector_blocks_delta):
         '''
-        server has sent new block information for `sector_position`
+        server has sent the player changed blocks in `sector_position`
         client should repalce its delta to the mapgen terrain with this one
         '''
         #vt_data, blocks = self.world.update_block_data(sector_position, sector_blocks_delta)
-        vt_data, blocks = self.world.request_sector(sector_position)
+        vt_data, blocks = self.world.get_sector_data(sector_position, sector_blocks_delta)
         self.handler.send_client('sector_blocks', sector_position, blocks, vt_data)
 
 def _start_server_connection(controller_pipe, SERVER_IP):
