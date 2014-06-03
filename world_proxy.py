@@ -19,6 +19,7 @@ import pyglet.gl as gl
 
 # local imports
 import world_loader
+import server_connection
 import config
 from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS
 from util import normalize, sectorize, FACES, cube_v, cube_v2
@@ -96,8 +97,9 @@ class ModelProxy(object):
             self.loader = world_loader.SectorLoader()
         else:
             print('USING MP LOADER')
-            world_loader.start_loader(config.SERVER_IP)
-            self.loader = multiprocessing.connection.Client(address = (config.LOADER_IP,config.LOADER_PORT), authkey = 'password')
+            self.loader = server_connection.start_server_connection()
+#            world_loader.start_loader(config.SERVER_IP)
+#            self.loader = multiprocessing.connection.Client(address = (config.LOADER_IP,config.LOADER_PORT), authkey = 'password')
     
     def get_batch(self):
         if len(self.unused_batches)>0:
@@ -127,10 +129,10 @@ class ModelProxy(object):
             blocks = s.blocks
             #if position is at edge of block, update neighboring block as well
             if config.SERVER_IP is not None:
-                self.loader_requests.insert(0,['add_block',[position, block]])
+                self.loader_requests.insert(0,['set_block',[position, block]])
 #                self.loader_requests.insert(0,['add_block',[position, block]])
             else:
-                self.loader_requests.insert(0,['add_block',[spos, position, block, blocks]])
+                self.loader_requests.insert(0,['set_block',[spos, position, block, blocks]])
 
     def remove_block(self, position):
         spos = sectorize(position)
@@ -138,10 +140,10 @@ class ModelProxy(object):
             s = self.sectors[spos]
             blocks = s.blocks
             if config.SERVER_IP is not None:
-                self.loader_requests.insert(0,['remove_block',[position]])
+                self.loader_requests.insert(0,['set_block',[position, 0]])
 #                self.loader_requests.insert(0,['remove_block',[position]])
             else:
-                self.loader_requests.insert(0,['remove_block',[spos, position, blocks]])
+                self.loader_requests.insert(0,['set_block',[spos, position, 0, blocks]])
 
     def draw(self, position, (center, radius)):
         #t = time.time()
@@ -190,35 +192,39 @@ class ModelProxy(object):
                 spos = self.active_loader_request[1]
                 print('requesting sector',spos)
                 try:
-                    req_pos = [r[0] for r in self.loader_requests].index('request_sector') #insert job below higher priority jobs
+                    req_pos = [r[0] for r in self.loader_requests].index('sector_blocks') #insert job below higher priority jobs
                 except ValueError:
                     req_pos = -1
-                self.loader_requests.insert(req_pos,['request_sector',spos])
+                self.loader_requests.insert(req_pos,['sector_blocks',[spos]])
             if len(self.loader_requests)>0:
                 self.loader_time = time.time()
                 self.n_requests += 1
+                print('sending',self.loader_requests[0])
                 self.loader.send(self.loader_requests.pop(0))
 
         if self.loader.poll():
             try:
-                spos, blocks, vt_data = self.loader.recv()
-                self.n_responses = self.n_requests
-                self.active_loader_request = [None, None]
-                print('recv', spos, len(vt_data[1]))
-                print('took', time.time()-self.loader_time)
-                if spos in self.sectors:
-                    print('setting existing sector data',spos)
-                    s = self.sectors[spos]
-                    s.blocks[:,:,:] = blocks
-                    s.vt_data = vt_data
-                    s.invalidate()
-                else:
-                    print('setting new sector data',spos)
-                    s = SectorProxy(spos, self.get_batch(), self.group, self)
-                    s.blocks[:,:,:] = blocks
-                    s.vt_data = vt_data
-                    self.sectors[sectorize(spos)] = s
-                    s.invalidate()
+                msg, data = self.loader.recv()
+                print('game received',msg)
+                if msg == 'sector_blocks':
+                    spos, blocks, vt_data = data
+                    self.n_responses = self.n_requests
+                    self.active_loader_request = [None, None]
+                    print('recv', spos, len(vt_data[1]))
+                    print('took', time.time()-self.loader_time)
+                    if spos in self.sectors:
+                        print('setting existing sector data',spos)
+                        s = self.sectors[spos]
+                        s.blocks[:,:,:] = blocks
+                        s.vt_data = vt_data
+                        s.invalidate()
+                    else:
+                        print('setting new sector data',spos)
+                        s = SectorProxy(spos, self.get_batch(), self.group, self)
+                        s.blocks[:,:,:] = blocks
+                        s.vt_data = vt_data
+                        self.sectors[sectorize(spos)] = s
+                        s.invalidate()
             except EOFError:
                 print('loader returned EOF')
 

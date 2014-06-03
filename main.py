@@ -38,7 +38,7 @@ class Window(pyglet.window.Window):
         self.exclusive = False
 
         # When flying gravity has no effect and speed is increased.
-        self.flying = False
+        self.flying = True
         self.fly_climb = 0
 
         # Strafing is moving lateral to the direction you are facing,
@@ -51,7 +51,7 @@ class Window(pyglet.window.Window):
 
         # Current (x, y, z) position in the world, specified with floats. Note
         # that, perhaps unlike in math class, the y-axis is the vertical axis.
-        self.position = (0, 200, 0)
+        self.position = (0, 160, 0)
 
         # First element is rotation of the player in the x-z plane (ground
         # plane) measured from the z-axis down. The second is the rotation
@@ -498,8 +498,15 @@ class Window(pyglet.window.Window):
         self.clear()
         self.set_3d()
         gl.glColor3d(1, 1, 1)
+        gl.glEnable(gl.GL_POLYGON_OFFSET_FILL)
+        gl.glPolygonOffset(0,1)
+
+#        gl.glDepthRange(0.1,1.0)
         self.model.draw(self.position,self.get_frustum_circle())
+#        gl.glDepthRange(0.0,0.9)
+        gl.glDisable(gl.GL_POLYGON_OFFSET_FILL)
         self.draw_focused_block()
+#        gl.glDepthRange(0.0,1.0)
         self.set_2d()
         self.draw_label()
         self.draw_reticle()
@@ -519,9 +526,12 @@ class Window(pyglet.window.Window):
                 vertex_data.extend(v)
             gl.glLineWidth(3)
             gl.glColor3d(0, 0, 0)
+            #gl.glDepthMask(gl.GL_FALSE)
             gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
+            #gl.glPolygonOffset(-.1,-.1)
             pyglet.graphics.draw(24, gl.GL_QUADS, ('v3f/static', vertex_data))
             gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
+            #gl.glDepthMask(gl.GL_TRUE)
             gl.glLineWidth(1)
 
     def draw_label(self):

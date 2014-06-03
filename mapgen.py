@@ -28,7 +28,7 @@ class SectorNoise2D(object):
         N=self.noise.noise(Z/self.step)*self.scale + self.offset
         return N.reshape((SECTOR_SIZE+2,SECTOR_SIZE+2))
 
-def initialize_map_generator():
+def initialize_map_generator(seed = None):
     global noise1, noise2, noise3, noise4
     HILL_STEP = 40.0
     HILL_SCALE = 5
@@ -39,7 +39,8 @@ def initialize_map_generator():
     GAIN_STEP = 3000.0
     GAIN_SCALE = 5
     GAIN_OFFSET = 5
-    seed = int(time.time())
+    if seed == None:
+        seed = int(time.time())
     noise1 = SectorNoise2D(seed = seed+12, step = HILL_STEP, step_offset = 30,  
         scale = HILL_SCALE, offset = HILL_OFFSET)
     noise2 = SectorNoise2D(seed = seed+16, step = HILL_STEP, step_offset = 900,

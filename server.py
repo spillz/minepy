@@ -12,6 +12,7 @@ import traceback
 from config import SECTOR_SIZE, SECTOR_HEIGHT, LOADED_SECTORS, SERVER_IP, SERVER_PORT
 from util import normalize, sectorize, FACES
 from blocks import BLOCK_ID
+from players import Player, ClientPlayer
 #import mapgen
 
 def get_network_ip():
@@ -67,7 +68,7 @@ class World(object):
     '''
 
     def __init__(self):
-        mapgen.initialize_map_generator()
+#        mapgen.initialize_map_generator()
         # The world is stored in sector chunks.
         self.sectors = {}
         self.sector_cache = []
@@ -93,7 +94,10 @@ class World(object):
 
     def request_sector(self, spos):
         spos = sectorize(spos)
-        return self.sectors[spos].blocks
+        if spos in self.sectors:
+            return self.sectors[spos].blocks
+        else:
+            return None
 
     def set_block(self, position, block):
         position = normalize(position)
@@ -121,33 +125,17 @@ class World(object):
         s.set_block(position, block)
         return spos, s.blocks
 
-counter = 0
-
-class Player(object):
-    def __init__(self, conn):
-        global counter
-        self.conn = conn
-        self.id = counter
-        count+=1
-        self.name = 'FRED'
-        self.position = (0,0,0)
-        self.comms_queue = []
-
-    def __repr__(self):
-        return self.name
-
 class ServerConnectionHandler(object):
     '''
     Handles the low level connection handling details of the multiplayer server
     '''
-    def __init__(self, server):
+    def __init__(self):
         print('starting server at %s:%i'%(SERVER_IP,SERVER_PORT))
         self.listener = multiprocessing.connection.Listener(address = (SERVER_IP,SERVER_PORT), authkey = 'password')
         self.players = []
-        self.server = server
         self.fn_dict = {}
 
-    def register_function(self,fn,name):
+    def register_function(self, name, fn):
         self.fn_dict[name]=fn
 
     def call_function(self,name,*args):
@@ -166,13 +154,16 @@ class ServerConnectionHandler(object):
 
     def accept_connection(self):
         conn = self.listener.accept()
-        self.players.append(Player(conn))
-        return conn
+        player = Player(conn)
+        self.players.append(player)
+        return player
 
     def serve(self):
         alive = True
         while alive:
+            print('selecting')
             r,w,x = select.select([self.listener._listener._socket] + self.connections(), self.connections_with_comms(), [])
+            print('selected',len(r),len(w))
             accept_new = True
             for p in self.players:
                 if p.conn in r:
@@ -180,8 +171,8 @@ class ServerConnectionHandler(object):
                     accept_new = False
                     print('recv from',p.name)
                     try:
-                        msg, data = conn.recv()
-                        print('msg',msg)
+                        msg, data = p.conn.recv()
+                        print('msg',msg,data)
                         if msg == 'quit':
                             alive = False
                         else:
@@ -190,15 +181,17 @@ class ServerConnectionHandler(object):
                             except Exception as ex:
                                 traceback.print_exc()
                     except EOFError:
-                        p = self.player_from_connection(conn)
                         print('lost',p)
                         self.players.remove(p)
-            if accept_new:
-                conn = self.accept_connection()
-                print('accept',conn)
+            if accept_new and self.listener._listener._socket in r:
+                player = self.accept_connection()
+                print('connected',player)
+                self.queue_for_player(player, 'connected', ClientPlayer(player), [ClientPlayer(p) for p in self.players])
+                self.queue_for_others(player, 'other_player_join', ClientPlayer(player))
             for p in self.players:
                 if p.conn in w:
-                    self.dispatch_top_message(player)
+                    print('dispatch',p)
+                    self.dispatch_top_message(p)
         self.listener.close()
 
     ##TODO: queue calls should collapse similar calls (e.g. multiple block adds in the same sector)
@@ -219,20 +212,22 @@ class ServerConnectionHandler(object):
         return [p for p in self.players if p != player]
 
     def dispatch_top_message(self, player):
-        player.conn.send_bytes(*player.comms_queue.pop(0))
-
+        print('sending',player,player.comms_queue[0])
+        player.conn.send_bytes(cPickle.dumps(player.comms_queue.pop(0), -1))
 
 class Server(object):
     '''
     minepy Multiplayer Server
-    managers connections from players and handles data requests
+    manages connections from players and handles data requests
 
     Maintains the following databases
         block information (delta from what the terrain generator produces)
         player information (unique id/name, location, velocity)
 
     Server Messages (client must have handlers for these)
-        player_join(player)
+        connected(players)
+            notifies the player that just connect with a list of all `players`
+        other_player_join(player)
             notifies all other players that `player` has joined
         player_set_name(player, name)
             notifies all players that `player` is using name `name`
@@ -240,18 +235,18 @@ class Server(object):
             notifies all other players that `player` is at `position`
         player_set_block(player, position, block)
             notifies all players that `player` has set `block` at `position`
-        sector_blocks(sector_blocks_delta)
+        updated_sector_blocks(sector_pos, sector_blocks_delta)
             sends `sector_blocks_delta` to the player that requested it
     '''
     def __init__(self):
-        self.handler = ServerConnectionHandler(self)
+        self.handler = ServerConnectionHandler()
         self.world = World()
+        #TODO: could use a decorator to avoid explicit registration, though I think this is more readable
+        self.handler.register_function('set_name',self.set_name)
+        self.handler.register_function('set_postion',self.set_position)
+        self.handler.register_function('set_block',self.set_block)
+        self.handler.register_function('sector_blocks',self.sector_blocks)
         self.handler.serve()
-        #TODO: could use a decorator, though I think this is more readable
-        self.register_function('set_name',self.set_name)
-        self.register_function('set_postion',self.set_position)
-        self.register_function('set_block',self.set_block)
-        self.register_function('get_sector_blocks',self.get_sector_blocks)
 
     def set_name(self, player, name):
         '''
@@ -265,7 +260,7 @@ class Server(object):
                 used = True
         if not used:
             player.name = data
-        self.handler.queue_for_all_players(player, 'set_name', player.name)
+        self.handler.queue_for_all_players(player, 'player_set_name', player.name)
 
     def set_position(self, player, position):
         '''
@@ -274,7 +269,7 @@ class Server(object):
         broadcast only to other players
         '''
         player.position = position
-        self.handler.queue_for_others(player, 'set_position', position)
+        self.handler.queue_for_others(player, 'player_set_position', position)
 
     def set_block(self, player, position, block):
         '''
@@ -284,16 +279,15 @@ class Server(object):
         when multiple players set the same block)
         '''
         self.world.set_block(position, block)
-        self.handler.queue_for_all_players(player, 'set_block', position, block)
+        self.handler.queue_for_all_players(player, 'player_set_block', position, block)
 
-    def get_sector_blocks(self, player, sector_pos):
+    def sector_blocks(self, player, sector_pos):
         '''
         request by `player` for the changed blocks in `sector_pos`
         data will be sent with the message `sector_blocks`
         '''
-        spos = data
-        blocks = self.world.request_sector(spos)
-        self.handler.queue_for_player(player, 'sector_blocks', blocks)
+        blocks = self.world.request_sector(sector_pos)
+        self.handler.queue_for_player(player, 'updated_sector_blocks', sector_pos, blocks)
 
 
 
