@@ -13,7 +13,7 @@ class ClientServerConnectionHandler(object):
     Handles the low level connection handling details of the multiplayer server
     '''
     def __init__(self, controller_pipe, SERVER_IP):
-        print('connecting to at %s:%i'%(SERVER_IP,SERVER_PORT))
+        print('connecting to server at %s:%i'%(SERVER_IP,SERVER_PORT))
         self._conn = multiprocessing.connection.Client(address = (SERVER_IP,SERVER_PORT), authkey = 'password')
         self._pipe = controller_pipe
         self._server_message_queue = []
@@ -159,13 +159,13 @@ class ClientServerConnection(object):
         vt_data, blocks = self.world.request_sector(sector_position)
         self.handler.send_client('sector_blocks', sector_position, blocks, vt_data)
 
-def _start_server_connection(controller_pipe, SERVER_IP = 'localhost'):
+def _start_server_connection(controller_pipe, SERVER_IP):
     conn = ClientServerConnection(controller_pipe, SERVER_IP)
 
 class ClientServerConnectionProxy(object):
     def __init__(self, SERVER_IP = 'localhost'):
         self.pipe, _pipe = multiprocessing.Pipe()
-        proc = multiprocessing.Process(target = _start_server_connection, args = (_pipe, 'localhost'))
+        proc = multiprocessing.Process(target = _start_server_connection, args = (_pipe, SERVER_IP))
         proc.start()
 
     def poll(self):
@@ -184,5 +184,5 @@ class ClientServerConnectionProxy(object):
         return self.pipe.recv_bytes()
 
 
-def start_server_connection():
-    return ClientServerConnectionProxy(SERVER_IP = 'localhost')
+def start_server_connection(SERVER_IP):
+    return ClientServerConnectionProxy(SERVER_IP)

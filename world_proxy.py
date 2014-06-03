@@ -97,7 +97,7 @@ class ModelProxy(object):
             self.loader = world_loader.SectorLoader()
         else:
             print('USING MP LOADER')
-            self.loader = server_connection.start_server_connection()
+            self.loader = server_connection.start_server_connection(config.SERVER_IP)
 #            world_loader.start_loader(config.SERVER_IP)
 #            self.loader = multiprocessing.connection.Client(address = (config.LOADER_IP,config.LOADER_PORT), authkey = 'password')
     
