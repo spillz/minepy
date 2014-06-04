@@ -27,21 +27,21 @@ def get_network_ip():
 class SectorDB(object):
     def __init__(self, filename):
         self.db = leveldb.LevelDB(filename)
-        
+
     def get_sector(self, position):
         try:
             return cPickle.loads(self.db.Get(self.sector_position_to_string(position)))
         except KeyError:
             return None
-        
+
     def put_sector(self, position, data):
         data = cPickle.dumps(data, -1)
         self.db.Put(self.sector_position_to_string(position), data)
-        
+
     def string_to_sector_position(self, str_position):
         p = str_position.split(':')
         return (p[0], 0 , p[1])
-        
+
     def sector_position_to_string(self, sector_position):
         return str(sector_position[0]) + ':' + str(sector_position[2])
 
@@ -131,7 +131,7 @@ class World(object):
     def get_sector_data(self, spos):
         #TODO: Free up unneeded sectors
         spos = sectorize(spos)
-        if spos in self.sectors:               
+        if spos in self.sectors:
             return self.sectors[spos].blocks
         else:
             s = Sector(spos, self.db)
@@ -280,7 +280,12 @@ class Server(object):
         self.handler.register_function('set_postion',self.set_position)
         self.handler.register_function('set_block',self.set_block)
         self.handler.register_function('sector_blocks',self.sector_blocks)
-        self.handler.serve()
+        try:
+            self.handler.serve()
+        except KeyboardInterrupt:
+            print('Received keyboard interrupt')
+            print('Shutting down...')
+            #TODO: Notify players that we're shutting down
 
     def set_name(self, player, name):
         '''
