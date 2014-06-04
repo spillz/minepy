@@ -275,22 +275,17 @@ class World(object):
 
     def __init__(self):
         mapgen.initialize_map_generator(1234)
-        # The world is stored in sector chunks.
+        # The world is stored in square sectors stacked along the x,z plane.
         self.sectors = {}
         self.sector_cache = []
 
-        # Simple function queue implementation. The queue is populated with
-        # _show_block() and _hide_block() calls
-#        self.queue = deque()
-
-        d = range(-SECTOR_SIZE*3,SECTOR_SIZE*3+1,SECTOR_SIZE)
-        #d = range(-128,128+1,SECTOR_SIZE)
-        for pos in itertools.product(d,(0,),d):
-            s=Sector(pos, self)
-            self.sectors[sectorize(pos)] = s
-            s._initialize()
-        for s in self.sectors:
-            self.sectors[s].calc_vertex_data()
+#        d = range(-SECTOR_SIZE*3,SECTOR_SIZE*3+1,SECTOR_SIZE)
+#        for pos in itertools.product(d,(0,),d):
+#            s=Sector(pos, self)
+#            self.sectors[sectorize(pos)] = s
+#            s._initialize()
+#        for s in self.sectors:
+#            self.sectors[s].calc_vertex_data()
 
 
     def __getitem__(self, position):
