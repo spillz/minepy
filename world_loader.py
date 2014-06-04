@@ -175,17 +175,17 @@ class Sector(object):
     def calc_exposed_faces(self):
         #TODO: The 3D bitwise ops are slow
         air = BLOCK_SOLID[self.blocks] == 0
-
-        light = numpy.cumproduct(air[:,::-1,:], axis=1)[:,::-1,:]
+        tr = air*(self.blocks>0)
+        #light = numpy.cumproduct(air[:,::-1,:], axis=1)[:,::-1,:]
 
         exposed = numpy.zeros(air.shape,dtype=numpy.uint8)
-        exposed[:,:-1,:] |= air[:,1:,:]<<7 #up
-        exposed[:,1:,:] |= air[:,:-1,:]<<6 #down
-        exposed[1:,:,:] |= air[:-1,:,:]<<5 #left
-        exposed[:-1,:,:] |= air[1:,:,:]<<4 #right
-        exposed[:,:,:-1] |= air[:,:,1:]<<3 #forward
-        exposed[:,:,1:] |= air[:,:,:-1]<<2 #back
-        self.exposed = exposed*(~air)
+        exposed[:,:-1,:] |= (tr[:,:-1,:] | air[:,1:,:])<<7 #up
+        exposed[:,1:,:] |= (tr[:,1:,:] | air[:,:-1,:])<<6 #down
+        exposed[1:,:,:] |= (tr[1:,:,:] | air[:-1,:,:])<<5 #left
+        exposed[:-1,:,:] |= (tr[:-1,:,:] | air[1:,:,:])<<4 #right
+        exposed[:,:,:-1] |= (tr[:,:,:-1] | air[:,:,1:])<<3 #forward
+        exposed[:,:,1:] |= (tr[:,:,1:] | air[:,:,:-1])<<2 #back
+        self.exposed = exposed*(self.blocks>0)
 
     def calc_vertex_data(self):
         if self.exposed == None:
@@ -243,10 +243,15 @@ class Sector(object):
         sector_pos = numpy.array(position) - self.bposition
         x, y, z = sector_pos
         exposed = 0
+        #Note that if this block is not solid, we treat all of its faces as exposed
+        #TODO: refine this so that only faces that need to be exposed are
+        #(e.g. bottom of cake block does not need to be shown if the block neighbors
+        #a solid block, but the sides do
+        SOLID = BLOCK_SOLID[self[position]]
         if self[position] != 0:
             i=1
             for f in FACES:
-                if not BLOCK_SOLID[self.world[numpy.array(position)+numpy.array(f)]]:
+                if not SOLID or not BLOCK_SOLID[self.world[numpy.array(position)+numpy.array(f)]]:
                     exposed |= 1<<(8-i)
                 i+=1
         if exposed != self.exposed[x,y,z]:
@@ -426,7 +431,7 @@ class World(object):
         for dx, dy, dz in FACES:
             key = (x + dx, y + dy, z + dz)
             b = self[key]
-            if not BLOCK_SOLID[b] or b is None:
+            if b==0 or b is None:
                 continue
 #            self.update_block(key)
             self.sectors[sectorize(key)].update_block(key)
