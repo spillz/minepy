@@ -25,7 +25,7 @@ import config
 from config import DIST, TICKS_PER_SEC, FLYING_SPEED, GRAVITY, JUMP_SPEED, \
         MAX_JUMP_HEIGHT, PLAYER_HEIGHT, TERMINAL_VELOCITY, TICKS_PER_SEC, \
         WALKING_SPEED
-from blocks import BLOCK_ID, BLOCK_TEXTURES, BLOCK_VERTICES
+from blocks import BLOCK_ID, BLOCK_TEXTURES, BLOCK_VERTICES, BLOCK_COLORS
 
 
 class Window(pyglet.window.Window):
@@ -400,7 +400,7 @@ class Window(pyglet.window.Window):
         )
         #inventory item
         self.update_inventory_item_batch()
-    
+
     def update_inventory_item_batch(self):
         size = 64
         if self.inventory_item is not None:
@@ -410,7 +410,7 @@ class Window(pyglet.window.Window):
         t = BLOCK_TEXTURES[BLOCK_ID[self.block]][:6].ravel()
         v = size/2+size/2*BLOCK_VERTICES[BLOCK_ID[self.block]] + numpy.tile(numpy.array([16,16+size/2,0]),4)
         v = v.ravel()
-        c = 255*numpy.array([1,1,1, 1,1,1, 1,1,1, 1,1,1]).repeat(6)
+        c = BLOCK_COLORS[BLOCK_ID[self.block]][:6].ravel()
         self.inventory_item = self.inventory_batch.add(len(t)/2, gl.GL_QUADS, self.inventory_group,
             ('v3f/static', v),
             ('t2f/static', t),
@@ -424,7 +424,7 @@ class Window(pyglet.window.Window):
 #        self.inventory_item_outline = self.inventory_batch.add(len(v)/3, gl.GL_LINE_STRIP, self.inventory_outline_group,
 #            ('v3f/static', v),
 #            ('c3B/static', c),
-#        )        
+#        )
 
     def on_close(self):
         self.model.quit()
@@ -435,6 +435,7 @@ class Window(pyglet.window.Window):
 
         """
         width, height = self.get_size()
+        gl.glDisable(gl.GL_LIGHTING)
         gl.glDisable(gl.GL_DEPTH_TEST)
         gl.glViewport(0, 0, width, height)
         gl.glMatrixMode(gl.GL_PROJECTION)

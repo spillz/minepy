@@ -3,10 +3,10 @@ from util import tex_coords, FACES, cb_v, de_v, cb_v_half, cb_v_cake
 
 TEXTURE_PATH = 'texture_fv.png'
 
-gr = [40,200,50]
+gr = [50,150,70]
 white = numpy.tile(numpy.array([255,255,255]),6*4).reshape(6,3*4)
 green = numpy.tile(numpy.array(gr),6*4).reshape(6,3*4)
-grass_top = numpy.array([30,220,30]*4+[255,255,255]*5*4).reshape(6,3*4)
+grass_top = numpy.array([77,244,44]*4+[255,255,255]*5*4).reshape(6,3*4)
 
 
 class Block(object):
