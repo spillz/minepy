@@ -162,13 +162,20 @@ class World(object):
         s.set_block(position, block)
         return spos, s.blocks
 
+class Listener(multiprocessing.connection.Listener):
+    def __init__(self, port, ip):
+        multiprocessing.connection.Listener.__init__(self, address = (SERVER_IP,SERVER_PORT), authkey = 'password')
+        
+    def fileno(self):
+        return self._listener._socket.fileno()
+        
 class ServerConnectionHandler(object):
     '''
     Handles the low level connection handling details of the multiplayer server
     '''
     def __init__(self):
         print('starting server at %s:%i'%(SERVER_IP,SERVER_PORT))
-        self.listener = multiprocessing.connection.Listener(address = (SERVER_IP,SERVER_PORT), authkey = 'password')
+        self.listener = Listener(SERVER_IP, SERVER_PORT)
         self.players = []
         self.fn_dict = {}
 
@@ -198,16 +205,16 @@ class ServerConnectionHandler(object):
     def serve(self):
         alive = True
         while alive:
-            r,w,x = select.select([self.listener._listener._socket] + self.connections(), self.connections_with_comms(), [])
+            r,w,x = select.select([self.listener] + self.connections(), self.connections_with_comms(), [])
             accept_new = True
             for p in self.players:
                 if p.conn in r:
+                    print('r select for ',p.id,p.name)
                     other_players = [op for op in self.players if op!=p]
                     accept_new = False
-                    print('recv from',p.name)
                     try:
                         msg, data = p.conn.recv()
-                        print('msg',msg,data)
+                        print('received %s from player %i (%s)'%(msg, p.id, p.name))
                         if msg == 'quit':
                             alive = False
                         else:
@@ -216,15 +223,16 @@ class ServerConnectionHandler(object):
                             except Exception as ex:
                                 traceback.print_exc()
                     except EOFError:
-                        print('lost',p)
+                        print('EOF error on connection for %i (%s)'%(p.id,p.name))
                         self.players.remove(p)
-            if accept_new and self.listener._listener._socket in r:
+            if accept_new and self.listener in r:
                 player = self.accept_connection()
-                print('connected',player)
+                print('connected new player with id %i'%(player.id,))
                 self.queue_for_player(player, 'connected', ClientPlayer(player), [ClientPlayer(p) for p in self.players])
                 self.queue_for_others(player, 'other_player_join', ClientPlayer(player))
             for p in self.players:
                 if p.conn in w:
+                    print('w select for ',p.id,p.name)
                     self.dispatch_top_message(p)
         self.listener.close()
 
@@ -246,7 +254,7 @@ class ServerConnectionHandler(object):
         return [p for p in self.players if p != player]
 
     def dispatch_top_message(self, player):
-        print('sending',player,player.comms_queue[0])
+        print('sending %s to %i (%s)'%(player.comms_queue[0][0], player.id, player.name))
         player.conn.send_bytes(cPickle.dumps(player.comms_queue.pop(0), -1))
 
 class Server(object):
