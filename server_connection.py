@@ -1,5 +1,6 @@
 import cPickle
 import multiprocessing
+import msocket
 import select
 import traceback
 
@@ -14,7 +15,8 @@ class ClientServerConnectionHandler(object):
     '''
     def __init__(self, controller_pipe, SERVER_IP):
         print('connecting to server at %s:%i'%(SERVER_IP,SERVER_PORT))
-        self._conn = multiprocessing.connection.Client(address = (SERVER_IP,SERVER_PORT), authkey = 'password')
+#        self._conn = multiprocessing.connection.Client(address = (SERVER_IP,SERVER_PORT), authkey = 'password')
+        self._conn = msocket.Client(SERVER_IP,SERVER_PORT)
         self._pipe = controller_pipe
         self._server_message_queue = []
         self._client_message_queue = []
@@ -39,32 +41,38 @@ class ClientServerConnectionHandler(object):
         alive = True
         while alive:
             w = []
-            if len(self._server_message_queue)>0:
-                w.append(self._conn)
+            try:
+                if len(self._server_message_queue)>0 or self._conn.unfinished_send()>0:
+                    w.append(self._conn)
+            except AttributeError: #multiprocessing version is blocking
+                if len(self._server_message_queue)>0:
+                    w.append(self._conn)
             if len(self._client_message_queue)>0:
                 w.append(self._pipe)
             r,w,x = select.select([self._conn, self._pipe], w, [])
-            print('select',r,w)
+#            print('select',r,w)
             if self._conn in r:
                 try:
-                    msg, pid, data = self._conn.recv()
-                    print('msg',msg)
-                    if msg == 'connected':
-                        self.connected(pid, data)
-                    elif msg == 'other_player_join':
-                        self.other_player_join(pid, data)
-                    else:
-                        try:
-                            p = self.player_from_id(pid)
-                            self.call_function(msg, p, *data)
-                        except Exception as ex:
-                            traceback.print_exc()
+                    result = self._conn.recv()
+                    if result is not None:
+                        msg, pid, data = result
+                        print('msg from server',msg)
+                        if msg == 'connected':
+                            self.connected(pid, *data)
+                        elif msg == 'other_player_join':
+                            self.other_player_join(pid, *data)
+                        else:
+                            try:
+                                p = self.player_from_id(pid)
+                                self.call_function(msg, p, *data)
+                            except Exception as ex:
+                                traceback.print_exc()
                 except EOFError:
                     ##TODO: disconnect from server / tell parent / try to reconnect
                     alive = False
             if self._pipe in r:
                 msg, data = self._pipe.recv()
-                print('msg',msg)
+                print('msg from client',msg)
                 if msg == 'quit':
                     ##TODO: disconnect from server
                     alive = False
@@ -76,11 +84,11 @@ class ClientServerConnectionHandler(object):
         self._conn.close()
         self._pipe.close()
 
-    def connected(self, player_id, players):
+    def connected(self, player_id, player, players):
         '''
         received when the `player` has successfully joined the game
         '''
-        player, self._players = players
+        self._players = players
         print('connected', player_id, players)
         for p in players:
             if p.id == player_id:
@@ -93,12 +101,18 @@ class ClientServerConnectionHandler(object):
         received when any other `player` has joined the game
         client should add the player to the list of known players
         '''
-        self._players.append(player[0])
+        self._players.append(player)
         self.send_client('other_player_join', player)
 
     def dispatch_top_server_message(self):
+        try: #socket version is non-blocking so we need to check for incomplete sends
+            if self._conn.unfinished_send():
+                if not self._conn.continue_send():
+                    return
+        except AttributeError: #multiprocessing version is blocking so those methods don't exist
+            pass
         print('sending to server',self._server_message_queue[0][0])
-        self._conn.send_bytes(cPickle.dumps(self._server_message_queue.pop(0), -1))
+        self._conn.send(self._server_message_queue.pop(0))
 
     def dispatch_top_client_message(self):
         print('sending to client',self._client_message_queue[0][0])

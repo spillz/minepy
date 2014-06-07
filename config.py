@@ -1,6 +1,6 @@
 import math
 
-DIST = 80
+DIST = 128
 
 TICKS_PER_SEC = 60
 

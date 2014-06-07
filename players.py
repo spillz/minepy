@@ -13,9 +13,11 @@ class Player(object):
     def __repr__(self):
         return self.name
 
+    def __str__(self):
+        return self.name
 
 class ClientPlayer(object):
-    def __init__(self, player = None):
+    def __init__(self, player):
         self.id = player.id
         self.name = player.name
         self.position = player.position
@@ -23,3 +25,5 @@ class ClientPlayer(object):
     def __repr__(self):
         return self.name
         
+    def __str__(self):
+        return self.name

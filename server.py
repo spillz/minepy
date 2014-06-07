@@ -3,7 +3,7 @@ import time
 import numpy
 import select
 import cPickle
-import multiprocessing.connection
+import msocket
 import socket
 import sys
 import traceback
@@ -161,13 +161,7 @@ class World(object):
         s = self.sectors[spos]
         s.set_block(position, block)
         return spos, s.blocks
-
-class Listener(multiprocessing.connection.Listener):
-    def __init__(self, port, ip):
-        multiprocessing.connection.Listener.__init__(self, address = (SERVER_IP,SERVER_PORT), authkey = 'password')
-        
-    def fileno(self):
-        return self._listener._socket.fileno()
+    
         
 class ServerConnectionHandler(object):
     '''
@@ -175,7 +169,7 @@ class ServerConnectionHandler(object):
     '''
     def __init__(self):
         print('starting server at %s:%i'%(SERVER_IP,SERVER_PORT))
-        self.listener = Listener(SERVER_IP, SERVER_PORT)
+        self.listener = msocket.Listener(SERVER_IP, SERVER_PORT)
         self.players = []
         self.fn_dict = {}
 
@@ -189,7 +183,10 @@ class ServerConnectionHandler(object):
         return [p.conn for p in self.players]
 
     def connections_with_comms(self):
-        return [p.conn for p in self.players if len(p.comms_queue)>0]
+        try: #socket version is non-blocking so we need to check for incomplete sends
+            return [p.conn for p in self.players if len(p.comms_queue)>0 or p.conn.unfinished_send()]
+        except AttributeError: #multiprocessing version is blocking
+            return [p.conn for p in self.players if len(p.comms_queue)>0]
 
     def player_from_connection(self, conn):
         for p in self.players:
@@ -210,31 +207,33 @@ class ServerConnectionHandler(object):
             for p in self.players:
                 if p.conn in r:
                     print('r select for ',p.id,p.name)
-                    other_players = [op for op in self.players if op!=p]
                     accept_new = False
                     try:
-                        msg, data = p.conn.recv()
-                        print('received %s from player %i (%s)'%(msg, p.id, p.name))
-                        if msg == 'quit':
-                            alive = False
-                        else:
-                            try:
-                                self.call_function(msg, p, *data)
-                            except Exception as ex:
-                                traceback.print_exc()
+                        result = p.conn.recv()
+                        if result is not None:
+                            msg, data = result
+                            print('received %s from player %i (%s)'%(msg, p.id, p.name))
+                            if msg == 'quit':
+                                alive = False
+                            else:
+                                try:
+                                    self.call_function(msg, p, *data)
+                                except Exception as ex:
+                                    traceback.print_exc()
                     except EOFError:
-                        print('EOF error on connection for player %i (%s)'%(p.id,p.name))
+                        #TODO: Could allow a few retries before dropping the player
+                        print('Disconnect due to EOF error on connection for player %i (%s)'%(p.id,p.name))
                         p.conn.close()
                         self.players.remove(p)
-            if accept_new and self.listener in r:
-                p = self.accept_connection()
-                print('connected new player with id %i'%(p.id,))
-                self.queue_for_player(p, 'connected', ClientPlayer(p), [ClientPlayer(p) for p in self.players])
-                self.queue_for_others(p, 'other_player_join', ClientPlayer(p))
             for p in self.players:
                 if p.conn in w:
                     print('w select for ',p.id,p.name)
                     self.dispatch_top_message(p)
+            if accept_new and self.listener in r:
+                p = self.accept_connection()
+                print('connected new player with id %i'%(p.id,))
+                self.queue_for_player(p, 'connected', ClientPlayer(p), [ClientPlayer(ap) for ap in self.players])
+                self.queue_for_others(p, 'other_player_join', ClientPlayer(p))
         self.listener.close()
 
     ##TODO: queue calls should collapse similar calls (e.g. multiple block adds in the same sector)
@@ -255,8 +254,15 @@ class ServerConnectionHandler(object):
         return [p for p in self.players if p != player]
 
     def dispatch_top_message(self, player):
+        try: #socket version is non-blocking so we need to check for incomplete sends
+            if player.conn.unfinished_send():
+                if not player.conn.continue_send():
+                    return
+        except AttributeError: #multiprocessing version is blocking
+            pass
         print('sending %s to %i (%s)'%(player.comms_queue[0][0], player.id, player.name))
-        player.conn.send_bytes(cPickle.dumps(player.comms_queue.pop(0), -1))
+        #player.conn.send_bytes(cPickle.dumps(player.comms_queue.pop(0), -1))
+        player.conn.send(player.comms_queue.pop(0))
 
 class Server(object):
     '''
