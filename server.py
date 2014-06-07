@@ -219,17 +219,18 @@ class ServerConnectionHandler(object):
                             alive = False
                         else:
                             try:
-                                self.call_function(msg, player, *data)
+                                self.call_function(msg, p, *data)
                             except Exception as ex:
                                 traceback.print_exc()
                     except EOFError:
-                        print('EOF error on connection for %i (%s)'%(p.id,p.name))
+                        print('EOF error on connection for player %i (%s)'%(p.id,p.name))
+                        p.conn.close()
                         self.players.remove(p)
             if accept_new and self.listener in r:
-                player = self.accept_connection()
-                print('connected new player with id %i'%(player.id,))
-                self.queue_for_player(player, 'connected', ClientPlayer(player), [ClientPlayer(p) for p in self.players])
-                self.queue_for_others(player, 'other_player_join', ClientPlayer(player))
+                p = self.accept_connection()
+                print('connected new player with id %i'%(p.id,))
+                self.queue_for_player(p, 'connected', ClientPlayer(p), [ClientPlayer(p) for p in self.players])
+                self.queue_for_others(p, 'other_player_join', ClientPlayer(p))
             for p in self.players:
                 if p.conn in w:
                     print('w select for ',p.id,p.name)
