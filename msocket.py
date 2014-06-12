@@ -17,7 +17,10 @@ if use_multiprocessing:
 else:
     
     import socket
-    import cPickle
+    try:
+        import cPickle as pickle
+    except ImportError:
+        import pickle
     import struct
 
     fmt = 'l'
@@ -69,14 +72,14 @@ else:
                 self.recv_buffer += self._sock.recv(min(remaining,4096))
                 if len(self.recv_buffer) -prev_read < min(remaining, 4096):
                     return
-            data = cPickle.loads(self.recv_buffer)
+            data = pickle.loads(self.recv_buffer)
             self.recv_finished = True
             self.recv_buffer = ''
             self.recv_count_buffer = ''
             return data
 
         def send(self, data):
-            datastream = cPickle.dumps(data, -1)
+            datastream = pickle.dumps(data, -1)
             count = len(datastream)
             ##TODO: check length of count raise exception if too big
             self.send_buffer = lencoder(count) + datastream

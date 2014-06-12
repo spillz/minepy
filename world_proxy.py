@@ -6,7 +6,10 @@ import numpy
 import multiprocessing.connection
 import multiprocessing.sharedctypes
 import multiprocessing
-import cPickle
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 import gc
 
 #gc.set_debug(gc.DEBUG_LEAK)
@@ -197,7 +200,7 @@ class ModelProxy(object):
             if len(self.loader_requests)>0:
                 self.loader_time = time.time()
                 self.n_requests += 1
-                print('client sending request to loader',self.loader_requests[0])
+                print('client sending request to loader',self.loader_requests[0][0])
                 self.loader.send(self.loader_requests.pop(0))
 
         if self.loader.poll():

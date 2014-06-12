@@ -1,4 +1,7 @@
-import cPickle
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 import multiprocessing
 import msocket
 import select
@@ -133,11 +136,11 @@ class ClientServerConnectionHandler(object):
 
     def dispatch_top_client_message(self):
         sconn_log('sending to client %s',self._client_message_queue[0][0])
-        self._pipe.send_bytes(cPickle.dumps(self._client_message_queue.pop(0), -1))
+        self._pipe.send_bytes(pickle.dumps(self._client_message_queue.pop(0), -1))
 
     def dispatch_top_loader_message(self):
         sconn_log('sending to loader %s',self._loader_message_queue[0][0])
-        self._loader_pipe.send_bytes(cPickle.dumps(self._loader_message_queue.pop(0), -1))
+        self._loader_pipe.send_bytes(pickle.dumps(self._loader_message_queue.pop(0), -1))
 
     def send_client(self, message, *args):
         self._client_message_queue.append((message, args))

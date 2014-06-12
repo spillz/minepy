@@ -8,7 +8,10 @@ import itertools
 import time
 import numpy
 import select
-import cPickle
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 import multiprocessing.connection
 import socket
 import sys
@@ -32,6 +35,15 @@ class WorldLoader(object):
     def __init__(self, client_pipe, server_pipe):
         self.client_pipe = client_pipe
         self.server_pipe = server_pipe
+        self.db = None
+        if self.server_pipe is None:
+            import world_db
+            self.db = world_db.World()
+            self.world_seed = self.db.get_seed()
+        else:
+            self.server_pipe.send(['l_get_seed',[]])
+            msg, (self.world_seed,) = self.server_pipe.recv()
+            assert(msg == 'l_seed')
         self.pos = None
         self.blocks = numpy.zeros((SECTOR_SIZE+2,SECTOR_HEIGHT,SECTOR_SIZE+2),dtype='u2') #blocks of a sector not the whole world
         self.vt_data = None #vertex data for the current sector
@@ -45,10 +57,10 @@ class WorldLoader(object):
         '''
         import mapgen
         import select
-        print('loader started')
+        loader_log('loader loop started')
         cpipe = self.client_pipe
         spipe = self.server_pipe
-        mapgen.initialize_map_generator()
+        mapgen.initialize_map_generator(seed = self.world_seed)
         while True:
             try:
                 msg, data = cpipe.recv()
@@ -71,9 +83,11 @@ class WorldLoader(object):
                     assert(msg == 'l_sector_blocks_changed')
                     spos, sector_block_delta = data
                     assert(spos == self.pos)
+                else:
+                    sector_block_delta = self.db.get_sector_data(self.pos)
                 self._initialize(self.pos, sector_block_delta)
                 self._calc_vertex_data(self.pos)
-                cpipe.send_bytes(cPickle.dumps(['sector_blocks',[self.pos, self.blocks, self.vt_data]],-1))
+                cpipe.send_bytes(pickle.dumps(['sector_blocks',[self.pos, self.blocks, self.vt_data]],-1))
             if msg == 'set_block':
                 pos, block_id, spos, self.blocks, nspos, nblocks = data
                 self.set_block(pos, spos, block_id)
@@ -85,13 +99,11 @@ class WorldLoader(object):
                     self.set_block(pos, nspos, block_id)
                     self._calc_vertex_data(nspos)
                     b2, v2 = self.blocks, self.vt_data
-                cpipe.send_bytes(cPickle.dumps(['sector_blocks2',[spos, b1, v1, nspos, b2, v2]],-1))
+                cpipe.send_bytes(pickle.dumps(['sector_blocks2',[spos, b1, v1, nspos, b2, v2]],-1))
                 if spipe is not None:
                     spipe.send(('set_block', [pos, block_id]))
-#                    msg, data = spipe.recv()
-#                    assert(msg == 'sector_blocks_changed')
-#                    spos, sector_block_delta = data
-#                    assert(spos == pos)
+                else:
+                    self.db.set_block(pos, block_id)
 
     def _initialize(self, position, sector_block_delta):
         """ Initialize the sector by procedurally generating terrain using
