@@ -1,0 +1,518 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="1287.8572"
+   height="1351.8572"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.4 r9939"
+   sodipodi:docname="architecture.svg"
+   inkscape:export-filename="architecture.png"
+   inkscape:export-xdpi="90"
+   inkscape:export-ydpi="90">
+  <defs
+     id="defs4">
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend"
+       style="overflow:visible">
+      <path
+         id="path3778"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt"
+         transform="matrix(-0.4,0,0,-0.4,-4,0)"
+         inkscape:connector-curvature="0" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Send"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Send"
+       style="overflow:visible">
+      <path
+         id="path3784"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt"
+         transform="matrix(-0.2,0,0,-0.2,-1.2,0)"
+         inkscape:connector-curvature="0" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Lend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Lend"
+       style="overflow:visible">
+      <path
+         id="path3772"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt"
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         inkscape:connector-curvature="0" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-9"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path3778-0"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt"
+         transform="matrix(-0.4,0,0,-0.4,-4,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-6"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path3778-5"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt"
+         transform="matrix(-0.4,0,0,-0.4,-4,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-68"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path3778-1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt"
+         transform="matrix(-0.4,0,0,-0.4,-4,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-96"
+       style="overflow:visible">
+      <path
+         inkscape:connector-curvature="0"
+         id="path3778-2"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt"
+         transform="matrix(-0.4,0,0,-0.4,-4,0)" />
+    </marker>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.35"
+     inkscape:cx="496.42858"
+     inkscape:cy="709.43571"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="10"
+     fit-margin-left="10"
+     fit-margin-right="10"
+     fit-margin-bottom="10"
+     inkscape:window-width="1366"
+     inkscape:window-height="715"
+     inkscape:window-x="0"
+     inkscape:window-y="31"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(61.071429,31.56639)">
+    <rect
+       style="fill:#e6e6e6;stroke:#000000;stroke-width:0;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0"
+       id="rect4781"
+       width="1602.8572"
+       height="1460"
+       x="-120"
+       y="-48.142822"
+       transform="translate(-61.071429,-31.56639)" />
+    <rect
+       style="fill:none;stroke:#fb0000;stroke-width:5;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="rect2985"
+       width="331.42865"
+       height="448.5715"
+       x="-12.285713"
+       y="61.505035" />
+    <rect
+       style="fill:none;stroke:#fb0000;stroke-width:5.83733559;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="rect2987"
+       width="433.44836"
+       height="276.30551"
+       x="724.13293"
+       y="70.209419" />
+    <rect
+       style="fill:none;stroke:#fb0000;stroke-width:8.1443615;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="rect2989"
+       width="602.56995"
+       height="239.71278"
+       x="464.42935"
+       y="590.79144" />
+    <rect
+       style="fill:none;stroke:#fb0000;stroke-width:6.1605258;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+       id="rect2991"
+       width="1075.9823"
+       height="267.41092"
+       x="50.008835"
+       y="1039.7996" />
+    <rect
+       style="fill:none;stroke:#fb0000;stroke-width:5.22876549;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:10.45753093, 10.45753093;stroke-dashoffset:0"
+       id="rect2993"
+       width="1262.6284"
+       height="896.91406"
+       x="-48.457047"
+       y="-18.952007" />
+    <path
+       style="fill:#000000;stroke:#000000;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow1Mend)"
+       d="M 83.785713,512.00507 466.64285,809.14793"
+       id="path3763"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#000000;stroke:#000000;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow1Mend)"
+       d="M 522.21231,587.87479 319.35517,376.44621"
+       id="path3763-2"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cc" />
+    <path
+       sodipodi:nodetypes="cc"
+       inkscape:connector-curvature="0"
+       id="path4607"
+       d="M 635.64088,582.1605 798.49803,350.73193"
+       style="fill:#000000;stroke:#000000;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow1Mend)" />
+    <path
+       sodipodi:nodetypes="cc"
+       inkscape:connector-curvature="0"
+       id="path4607-3"
+       d="M 1056.1148,349.13887 870.40055,586.28174"
+       style="fill:#000000;stroke:#000000;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow1Mend)" />
+    <path
+       sodipodi:nodetypes="cc"
+       inkscape:connector-curvature="0"
+       id="path4607-3-1"
+       d="m 523.1307,836.73325 10e-6,197.14285"
+       style="fill:#000000;stroke:#000000;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow1Mend)" />
+    <path
+       sodipodi:nodetypes="cc"
+       inkscape:connector-curvature="0"
+       id="path4607-3-1-0"
+       d="m 657.7857,1034.1301 2.85716,-200.00001"
+       style="fill:#000000;stroke:#000000;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow1Mend)" />
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="97.5"
+       y="1099.7192"
+       id="text4681"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4683"
+         x="97.5"
+         y="1099.7192">Server</tspan><tspan
+         sodipodi:role="line"
+         x="97.5"
+         y="1149.7192"
+         id="tspan4685">Tracks (and stores)</tspan><tspan
+         sodipodi:role="line"
+         x="97.5"
+         y="1199.7192"
+         id="tspan4687">* Player state</tspan><tspan
+         sodipodi:role="line"
+         x="97.5"
+         y="1249.7192"
+         id="tspan4689">* World state</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="-11.07143"
+       y="30.005077"
+       id="text4691"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4693"
+         x="-11.07143"
+         y="30.005077">Client App (3 processes)</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="12.357147"
+       y="123.43364"
+       id="text4695"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4697"
+         x="12.357147"
+         y="123.43364">Main App</tspan><tspan
+         sodipodi:role="line"
+         x="12.357147"
+         y="173.43364"
+         id="tspan4699">* game loop</tspan><tspan
+         sodipodi:role="line"
+         x="12.357147"
+         y="223.43364"
+         id="tspan4701">* displays 3D</tspan><tspan
+         sodipodi:role="line"
+         x="12.357147"
+         y="273.43365"
+         id="tspan4703">   world / HUD</tspan><tspan
+         sodipodi:role="line"
+         x="12.357147"
+         y="323.43365"
+         id="tspan4705">* displays </tspan><tspan
+         sodipodi:role="line"
+         x="12.357147"
+         y="373.43365"
+         id="tspan4707">   menus</tspan></text>
+    <path
+       sodipodi:nodetypes="cc"
+       inkscape:connector-curvature="0"
+       id="path4709"
+       d="m 325.06945,169.87479 391.42858,-2.85715"
+       style="fill:#000000;stroke:#000000;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow1Mend)" />
+    <path
+       style="fill:#000000;stroke:#000000;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow1Mend)"
+       d="M 716.49803,283.30336 319.35517,280.44621"
+       id="path4711"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cc" />
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="788.57141"
+       y="159.28575"
+       id="text4713"
+       sodipodi:linespacing="125%"
+       transform="translate(-51.07143,-21.566389)"><tspan
+         sodipodi:role="line"
+         id="tspan4715"
+         x="788.57141"
+         y="159.28575">Loader</tspan><tspan
+         sodipodi:role="line"
+         x="788.57141"
+         y="209.28575"
+         id="tspan4717">* generates</tspan><tspan
+         sodipodi:role="line"
+         x="788.57141"
+         y="259.28577"
+         id="tspan4719">   terrain</tspan><tspan
+         sodipodi:role="line"
+         x="788.57141"
+         y="309.28577"
+         id="tspan4723">* updates vertex </tspan><tspan
+         sodipodi:role="line"
+         x="788.57141"
+         y="359.28577"
+         id="tspan4727">   /lighting data</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="534.28571"
+       y="665"
+       id="text4729"
+       sodipodi:linespacing="125%"
+       transform="translate(-51.07143,-21.566389)"><tspan
+         sodipodi:role="line"
+         id="tspan4731"
+         x="534.28571"
+         y="665">Server Connection</tspan><tspan
+         sodipodi:role="line"
+         x="534.28571"
+         y="715"
+         id="tspan4733">* message handling</tspan><tspan
+         sodipodi:role="line"
+         x="534.28571"
+         y="765"
+         id="tspan4735">   between main app/loader</tspan><tspan
+         sodipodi:role="line"
+         x="534.28571"
+         y="815"
+         id="tspan4737">   and server</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="89.214279"
+       y="609.14789"
+       id="text4739"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         x="89.214279"
+         y="609.14789"
+         id="tspan4743">send changes</tspan><tspan
+         sodipodi:role="line"
+         x="89.214279"
+         y="659.14789"
+         id="tspan4749">to player state</tspan><tspan
+         sodipodi:role="line"
+         x="89.214279"
+         y="709.14789"
+         id="tspan4751">(e.g. position,</tspan><tspan
+         sodipodi:role="line"
+         x="89.214279"
+         y="759.14789"
+         id="tspan4753">jumping, add</tspan><tspan
+         sodipodi:role="line"
+         x="89.214279"
+         y="809.14789"
+         id="tspan4767">or remove</tspan><tspan
+         sodipodi:role="line"
+         x="89.214279"
+         y="859.14789"
+         id="tspan4769">blocks etc)</tspan><tspan
+         sodipodi:role="line"
+         x="89.214279"
+         y="909.14789"
+         id="tspan4745" /></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="329.78568"
+       y="474.0051"
+       id="text4755"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4757"
+         x="329.78568"
+         y="474.0051">player state</tspan><tspan
+         sodipodi:role="line"
+         x="329.78568"
+         y="524.00513"
+         id="tspan4759">changes</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="933.78571"
+       y="419.71936"
+       id="text4761"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4763"
+         x="933.78571"
+         y="419.71936">request for</tspan><tspan
+         sodipodi:role="line"
+         x="933.78571"
+         y="469.71936"
+         id="tspan4765">world data</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="350.35712"
+       y="149.14793"
+       id="text4771"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4773"
+         x="350.35712"
+         y="149.14793">request for sector</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="369.21426"
+       y="262.57651"
+       id="text4775"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4777"
+         x="369.21426"
+         y="262.57651">sector blocks + </tspan><tspan
+         sodipodi:role="line"
+         x="369.21426"
+         y="312.57651"
+         id="tspan4779">vertices</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="612.92859"
+       y="440.2908"
+       id="text4783"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         x="612.92859"
+         y="440.2908"
+         id="tspan4789">world  data</tspan><tspan
+         sodipodi:role="line"
+         x="612.92859"
+         y="490.2908"
+         id="tspan4795">(requested or</tspan><tspan
+         sodipodi:role="line"
+         x="612.92859"
+         y="540.29077"
+         id="tspan4797">updated)</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="8.3571167"
+       y="948.86218"
+       id="text4799"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         x="8.3571167"
+         y="948.86218"
+         id="tspan4803">game state changes and </tspan><tspan
+         sodipodi:role="line"
+         x="8.3571167"
+         y="998.86218"
+         id="tspan4807">world state requests</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
+       x="603.5"
+       y="923.43359"
+       id="text4809"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         x="603.5"
+         y="923.43359"
+         id="tspan4813">notifications of changes to any </tspan><tspan
+         sodipodi:role="line"
+         x="603.5"
+         y="973.43359"
+         id="tspan4815">player state or world state and</tspan><tspan
+         sodipodi:role="line"
+         x="603.5"
+         y="1023.4336"
+         id="tspan4823">returns requested world state </tspan><tspan
+         sodipodi:role="line"
+         x="603.5"
+         y="1073.4336"
+         id="tspan4848">sectors</tspan></text>
+  </g>
+</svg>
