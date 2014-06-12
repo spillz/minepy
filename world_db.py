@@ -162,7 +162,8 @@ class World(object):
             return seed
         except:
             seed = int(numpy.random.rand()*1000000)
-            return self.db.put('world_seed', seed)
+            self.db.put('world_seed', seed)
+            return seed
 
     def set_seed(self, seed):
         return self.db.put('world_seed', seed)
