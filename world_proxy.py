@@ -26,6 +26,10 @@ from util import normalize, sectorize, FACES, cube_v, cube_v2
 from blocks import BLOCK_VERTICES, BLOCK_COLORS, BLOCK_NORMALS, BLOCK_TEXTURES, BLOCK_ID, BLOCK_SOLID, TEXTURE_PATH
 import mapgen
 
+#import logging
+#logging.basicConfig(level = logging.INFO)
+#def world_log(msg, *args):
+#    logging.log(logging.INFO, 'WORLD: '+msg, *args)
 
 class SectorProxy(object):
     def __init__(self, position, batch, group, model, shown=True):
@@ -92,14 +96,14 @@ class ModelProxy(object):
         self.n_requests = 0
         self.n_responses = 0
 
-        if config.SERVER_IP == None:
-            print('USING LIGHTWEIGHT LOADER')
-            self.loader = world_loader.SectorLoader()
-        else:
-            print('USING MP LOADER')
-            self.loader = server_connection.start_server_connection(config.SERVER_IP)
-#            world_loader.start_loader(config.SERVER_IP)
-#            self.loader = multiprocessing.connection.Client(address = (config.LOADER_IP,config.LOADER_PORT), authkey = 'password')
+        loader_server_pipe = None
+        self.server = None
+        if config.SERVER_IP is not None:
+            print ('Starting server on %s'%(config.SERVER_IP,))
+            self.server = server_connection.start_server_connection(config.SERVER_IP)
+            loader_server_pipe = self.server.loader_pipe
+        print ('Starting sector loader')
+        self.loader = world_loader.start_loader(loader_server_pipe)
     
     def get_batch(self):
         if len(self.unused_batches)>0:
@@ -127,23 +131,17 @@ class ModelProxy(object):
         if spos in self.sectors:
             s = self.sectors[spos]
             blocks = s.blocks
-            #if position is at edge of block, update neighboring block as well
-            if config.SERVER_IP is not None:
-                self.loader_requests.insert(0,['set_block',[position, block]])
-#                self.loader_requests.insert(0,['add_block',[position, block]])
-            else:
-                self.loader_requests.insert(0,['set_block',[spos, position, block, blocks]])
+            nspos = None
+            nblocks = None
+            for np in [(1,0,0), (-1,0,0), (0,0,1), (0,0,-1)]:
+                nspos = sectorize((position[0]+np[0],position[1]+np[1],position[2]+np[2]))
+                if nspos != spos and nspos in self.sectors:
+                    nblocks = self.sectors[nspos].blocks
+                    break
+            self.loader_requests.insert(0,['set_block', [position, block, spos, blocks, nspos, nblocks]])
 
     def remove_block(self, position):
-        spos = sectorize(position)
-        if spos in self.sectors:
-            s = self.sectors[spos]
-            blocks = s.blocks
-            if config.SERVER_IP is not None:
-                self.loader_requests.insert(0,['set_block',[position, 0]])
-#                self.loader_requests.insert(0,['remove_block',[position]])
-            else:
-                self.loader_requests.insert(0,['set_block',[spos, position, 0, blocks]])
+        self.add_block(position, 0)
 
     def draw(self, position, (center, radius)):
         #t = time.time()
@@ -190,7 +188,7 @@ class ModelProxy(object):
             if len(self.update_sectors_pos)>0:
                 self.active_loader_request = self.update_sectors_pos.pop(0)
                 spos = self.active_loader_request[1]
-                print('requesting sector',spos)
+                print('queueing sector',spos)
                 try:
                     req_pos = [r[0] for r in self.loader_requests].index('sector_blocks') #insert job below higher priority jobs
                 except ValueError:
@@ -199,34 +197,44 @@ class ModelProxy(object):
             if len(self.loader_requests)>0:
                 self.loader_time = time.time()
                 self.n_requests += 1
-                print('sending',self.loader_requests[0])
+                print('client sending request to loader',self.loader_requests[0])
                 self.loader.send(self.loader_requests.pop(0))
 
         if self.loader.poll():
             try:
                 msg, data = self.loader.recv()
-                print('game received',msg)
+                print('client received',msg)
                 if msg == 'sector_blocks':
-                    spos, blocks, vt_data = data
+                    spos1, b1, v1 = data
                     self.n_responses = self.n_requests
                     self.active_loader_request = [None, None]
-                    print('recv', spos, len(vt_data[1]))
                     print('took', time.time()-self.loader_time)
-                    if spos in self.sectors:
-                        print('setting existing sector data',spos)
-                        s = self.sectors[spos]
-                        s.blocks[:,:,:] = blocks
-                        s.vt_data = vt_data
-                        s.invalidate()
-                    else:
-                        print('setting new sector data',spos)
-                        s = SectorProxy(spos, self.get_batch(), self.group, self)
-                        s.blocks[:,:,:] = blocks
-                        s.vt_data = vt_data
-                        self.sectors[sectorize(spos)] = s
-                        s.invalidate()
+                    self._update_sector(spos1, b1, v1)
+                if msg == 'sector_blocks2':
+                    spos1, b1, v1, spos2, b2, v2 = data
+                    self.n_responses = self.n_requests
+                    self.active_loader_request = [None, None]
+                    print('took', time.time()-self.loader_time)
+                    self._update_sector(spos1, b1, v1)
+                    self._update_sector(spos2, b2, v2)
             except EOFError:
                 print('loader returned EOF')
+
+    def _update_sector(self, spos, b, v):
+        if b is not None:
+            if spos in self.sectors:
+                print('updating existing sector data',spos)
+                s = self.sectors[spos]
+                s.blocks[:,:,:] = b
+                s.vt_data = v
+                s.invalidate()
+            else:
+                print('setting new sector data',spos)
+                s = SectorProxy(spos, self.get_batch(), self.group, self)
+                s.blocks[:,:,:] = b
+                s.vt_data = v
+                self.sectors[sectorize(spos)] = s
+                s.invalidate()
 
     def hit_test(self, position, vector, max_distance=8):
         """ Line of sight search from current position. If a block is
@@ -270,7 +278,11 @@ class ModelProxy(object):
         return False
 
     def quit(self,kill_server=True):
-        if kill_server:
-            if self.n_requests > self.n_responses:
-                self.loader.recv()
-            self.loader.send(['quit',0])
+        if self.n_requests > self.n_responses:
+            self.loader.recv()
+        print('shutting down loader')
+        self.loader.send(['quit',0])
+        if self.server is not None:
+            print('closing server connection')
+            self.server.send(['quit',0])
+                

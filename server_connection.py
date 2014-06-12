@@ -8,20 +8,25 @@ from config import SERVER_PORT
 from players import Player
 import world_loader
 
+import logging
+logging.basicConfig(level = logging.INFO)
+def sconn_log(*args):
+    logging.log(logging.INFO,*args)
 
 class ClientServerConnectionHandler(object):
     '''
-    Handles the low level connection handling details of the multiplayer server
+    Handles the connection to the multiplayer server and routes messages between client/loader and server
     '''
-    def __init__(self, controller_pipe, SERVER_IP):
-        print('connecting to server at %s:%i'%(SERVER_IP,SERVER_PORT))
+    def __init__(self, client_pipe, loader_pipe, SERVER_IP):
+        sconn_log('connecting to server at %s:%i',SERVER_IP,SERVER_PORT)
 #        self._conn = multiprocessing.connection.Client(address = (SERVER_IP,SERVER_PORT), authkey = 'password')
         self._conn = msocket.Client(SERVER_IP,SERVER_PORT)
-        self._pipe = controller_pipe
+        self._pipe = client_pipe
+        self._loader_pipe = loader_pipe
         self._server_message_queue = []
         self._client_message_queue = []
+        self._loader_message_queue = []
         self._players = []
-        self._fn_dict = {}
 
     def register_function(self, name, fn):
         self._fn_dict[name]=fn
@@ -49,47 +54,59 @@ class ClientServerConnectionHandler(object):
                     w.append(self._conn)
             if len(self._client_message_queue)>0:
                 w.append(self._pipe)
-            r,w,x = select.select([self._conn, self._pipe], w, [])
-#            print('select',r,w)
+            if len(self._loader_message_queue)>0:
+                w.append(self._loader_pipe)
+            r,w,x = select.select([self._conn, self._pipe, self._loader_pipe], w, [])
             if self._conn in r:
                 try:
+                    sconn_log('msg from server')
                     result = self._conn.recv()
                     if result is not None:
                         msg, pid, data = result
-                        print('msg from server',msg)
+                        sconn_log('msg from server %s',msg)
                         if msg == 'connected':
                             self.connected(pid, *data)
                         elif msg == 'other_player_join':
                             self.other_player_join(pid, *data)
                         else:
-                            try:
-                                p = self.player_from_id(pid)
-                                self.call_function(msg, p, *data)
-                            except Exception as ex:
-                                traceback.print_exc()
+                            p = self.player_from_id(pid)
+                            if msg.startswith('l_'):
+                                self._loader_message_queue.append((msg, data))
+                            else:
+                                self._client_message_queue.append((msg, data))
                 except EOFError:
                     ##TODO: disconnect from server / tell parent / try to reconnect
                     alive = False
             if self._pipe in r:
                 msg, data = self._pipe.recv()
-                print('msg from client',msg)
+                sconn_log('msg from client %s',msg)
                 if msg == 'quit':
                     ##TODO: disconnect from server
                     alive = False
                 self._server_message_queue.append((msg, data))
+            if self._loader_pipe in r:
+                msg, data = self._loader_pipe.recv()
+                sconn_log('msg from loader %s',msg)
+                self._server_message_queue.append((msg, data))
             if self._conn in w:
+                sconn_log('msg from loader %s',msg)
                 self.dispatch_top_server_message()
             if self._pipe in w:
+                sconn_log('msg from loader %s',msg)
                 self.dispatch_top_client_message()
+            if self._loader_pipe in w:
+                sconn_log('msg from loader %s',msg)
+                self.dispatch_top_loader_message()
         self._conn.close()
         self._pipe.close()
+        self._loader_pipe.close()
 
     def connected(self, player_id, player, players):
         '''
         received when the `player` has successfully joined the game
         '''
         self._players = players
-        print('connected', player_id, players)
+        sconn_log('connected %i(%s)', player_id, str(players))
         for p in players:
             if p.id == player_id:
                 self.player = p
@@ -111,76 +128,31 @@ class ClientServerConnectionHandler(object):
                     return
         except AttributeError: #multiprocessing version is blocking so those methods don't exist
             pass
-        print('sending to server',self._server_message_queue[0][0])
+        sconn_log('sending to server %s',self._server_message_queue[0][0])
         self._conn.send(self._server_message_queue.pop(0))
 
     def dispatch_top_client_message(self):
-        print('sending to client',self._client_message_queue[0][0])
+        sconn_log('sending to client %s',self._client_message_queue[0][0])
         self._pipe.send_bytes(cPickle.dumps(self._client_message_queue.pop(0), -1))
+
+    def dispatch_top_loader_message(self):
+        sconn_log('sending to loader %s',self._loader_message_queue[0][0])
+        self._loader_pipe.send_bytes(cPickle.dumps(self._loader_message_queue.pop(0), -1))
 
     def send_client(self, message, *args):
         self._client_message_queue.append((message, args))
 
-class ClientServerConnection(object):
-    '''
-    represent a client-side connection to the minepy Multiplayer Server
-    manages connections from players and handles data requests
 
-    Maintains the following databases
-        block information (delta from what the terrain generator produces)
-        player information (unique id/name, location, velocity)
-    '''
-    def __init__(self, controller_pipe, SERVER_IP):
-        self.handler = ClientServerConnectionHandler(controller_pipe, SERVER_IP)
-        self.world = world_loader.World()
-        #TODO: could use a decorator, though I think this is more readable
-        self.handler.register_function('player_set_name',self.player_set_name)
-        self.handler.register_function('player_set_postion',self.player_set_position)
-        self.handler.register_function('player_set_block',self.player_set_block)
-        self.handler.register_function('sector_blocks_changed',self.sector_blocks_changed)
-        self.handler.communicate_loop()
-
-    def player_set_name(self, player, name):
-        '''
-        `player` has changed their name to `name`
-        client should update the name of that player
-        '''
-        player.name = name
-        self.handler.send_client('player_set_name', player)
-
-    def player_set_position(self, player, position):
-        '''
-        `player` has moved to `position`
-        client should move (and display) player at the new position
-        '''
-        player.position = position
-        self.handler.send_client('player_set_position', player)
-
-    def player_set_block(self, player, position, block):
-        '''
-        `player` has added `block` at `position`
-        client should add that block to its map
-        '''
-        for spos, vt_data, blocks in self.world.set_block(position, block):
-            self.handler.send_client('sector_blocks', spos, blocks, vt_data)
-        
-    def sector_blocks_changed(self, player, sector_position, sector_blocks_delta):
-        '''
-        server has sent the player changed blocks in `sector_position`
-        client should repalce its delta to the mapgen terrain with this one
-        '''
-        #vt_data, blocks = self.world.update_block_data(sector_position, sector_blocks_delta)
-        vt_data, blocks = self.world.get_sector_data(sector_position, sector_blocks_delta)
-        self.handler.send_client('sector_blocks', sector_position, blocks, vt_data)
-
-def _start_server_connection(controller_pipe, SERVER_IP):
-    conn = ClientServerConnection(controller_pipe, SERVER_IP)
+def _start_server_connection(client_pipe, loader_pipe, SERVER_IP):
+    conn = ClientServerConnectionHandler(client_pipe, loader_pipe, SERVER_IP)
+    conn.communicate_loop()
 
 class ClientServerConnectionProxy(object):
     def __init__(self, SERVER_IP = 'localhost'):
         self.pipe, _pipe = multiprocessing.Pipe()
-        proc = multiprocessing.Process(target = _start_server_connection, args = (_pipe, SERVER_IP))
-        proc.start()
+        self.loader_pipe, _loader_pipe = multiprocessing.Pipe()
+        self.proc = multiprocessing.Process(target = _start_server_connection, args = (_pipe, _loader_pipe, SERVER_IP))
+        self.proc.start()
 
     def poll(self):
         return self.pipe.poll()

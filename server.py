@@ -213,6 +213,7 @@ class ServerConnectionHandler(object):
                         if result is not None:
                             msg, data = result
                             print('received %s from player %i (%s)'%(msg, p.id, p.name))
+                            print(data)
                             if msg == 'quit':
                                 alive = False
                             else:
@@ -295,6 +296,7 @@ class Server(object):
         self.handler.register_function('set_postion',self.set_position)
         self.handler.register_function('set_block',self.set_block)
         self.handler.register_function('sector_blocks',self.sector_blocks)
+        self.handler.register_function('l_get_sector_blocks',self.l_get_sector_blocks)
         try:
             self.handler.serve()
         except KeyboardInterrupt:
@@ -342,6 +344,14 @@ class Server(object):
         '''
         blocks = self.world.get_sector_data(sector_pos)
         self.handler.queue_for_player(player, 'sector_blocks_changed', sector_pos, blocks)
+
+    def l_get_sector_blocks(self, player, sector_pos):
+        '''
+        request by `player`'s loader for the changed blocks in `sector_pos`
+        data will be sent with the message `sector_blocks`
+        '''
+        blocks = self.world.get_sector_data(sector_pos)
+        self.handler.queue_for_player(player, 'l_sector_blocks_changed', sector_pos, blocks)
 
 
 
