@@ -98,9 +98,10 @@ Quitting
 Licenses
 ========
 
-Code 
+Source Code 
 
 Copyright (C) 2014 by Damien Moore and licensed GPLv3
+(Approximately 90 percent of the source code)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -116,6 +117,7 @@ Copyright (C) 2014 by Damien Moore and licensed GPLv3
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Original Sources Copyright (C) 2013 Michael Fogleman
+(Primarily some of the code in the main.py and util.py modules)
 
     Permission is hereby granted, free of charge, to any person obtaining
     a copy of this software and associated documentation files (the "Software"), 
