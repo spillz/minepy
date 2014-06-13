@@ -129,7 +129,7 @@ class ModelProxy(object):
         except:
             return None
 
-    def add_block(self, position, block):
+    def add_block(self, position, block, notify_server = True):
         spos = sectorize(position)
         if spos in self.sectors:
             s = self.sectors[spos]
@@ -141,9 +141,9 @@ class ModelProxy(object):
                 if nspos != spos and nspos in self.sectors:
                     nblocks = self.sectors[nspos].blocks
                     break
-            self.loader_requests.insert(0,['set_block', [position, block, spos, blocks, nspos, nblocks]])
+            self.loader_requests.insert(0,['set_block', [notify_server, position, block, spos, blocks, nspos, nblocks]])
 
-    def remove_block(self, position):
+    def remove_block(self, position, notify_server = True):
         self.add_block(position, 0)
 
     def draw(self, position, (center, radius)):
@@ -222,6 +222,18 @@ class ModelProxy(object):
                     self._update_sector(spos2, b2, v2)
             except EOFError:
                 print('loader returned EOF')
+        
+        if self.server and self.server.poll():
+            try:
+                msg, data = self.server.recv()
+                if msg == 'connected':
+                    self.player, self.players = data
+                if msg == 'player_set_block':
+                    print data
+                    pos, block = data
+                    self.add_block(pos, block, False)
+            except EOFError:
+                print('server returned EOF')
 
     def _update_sector(self, spos, b, v):
         if b is not None:

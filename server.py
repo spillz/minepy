@@ -194,7 +194,7 @@ class Server(object):
         when multiple players set the same block)
         '''
         self.world_db.set_block(position, block)
-        self.handler.queue_for_all_players(player, 'player_set_block', position, block)
+        self.handler.queue_for_others(player, 'player_set_block', position, block)
 
     def sector_blocks(self, player, sector_pos):
         '''

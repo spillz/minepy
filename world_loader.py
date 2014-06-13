@@ -89,7 +89,7 @@ class WorldLoader(object):
                 self._calc_vertex_data(self.pos)
                 cpipe.send_bytes(pickle.dumps(['sector_blocks',[self.pos, self.blocks, self.vt_data]],-1))
             if msg == 'set_block':
-                pos, block_id, spos, self.blocks, nspos, nblocks = data
+                notify_server, pos, block_id, spos, self.blocks, nspos, nblocks = data
                 self.set_block(pos, spos, block_id)
                 self._calc_vertex_data(spos)
                 b1, v1 = self.blocks, self.vt_data
@@ -101,7 +101,8 @@ class WorldLoader(object):
                     b2, v2 = self.blocks, self.vt_data
                 cpipe.send_bytes(pickle.dumps(['sector_blocks2',[spos, b1, v1, nspos, b2, v2]],-1))
                 if spipe is not None:
-                    spipe.send(('set_block', [pos, block_id]))
+                    if notify_server:
+                        spipe.send(('set_block', [pos, block_id]))
                 else:
                     self.db.set_block(pos, block_id)
 
