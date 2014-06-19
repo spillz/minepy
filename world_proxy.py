@@ -107,7 +107,7 @@ class ModelProxy(object):
             loader_server_pipe = self.server.loader_pipe
         print ('Starting sector loader')
         self.loader = world_loader.start_loader(loader_server_pipe)
-    
+
     def get_batch(self):
         if len(self.unused_batches)>0:
             return self.unused_batches.pop(0)
@@ -134,14 +134,13 @@ class ModelProxy(object):
         if spos in self.sectors:
             s = self.sectors[spos]
             blocks = s.blocks
-            nspos = None
-            nblocks = None
+            sector_data = [(spos, blocks)]
             for np in [(1,0,0), (-1,0,0), (0,0,1), (0,0,-1)]:
                 nspos = sectorize((position[0]+np[0],position[1]+np[1],position[2]+np[2]))
                 if nspos != spos and nspos in self.sectors:
                     nblocks = self.sectors[nspos].blocks
-                    break
-            self.loader_requests.insert(0,['set_block', [notify_server, position, block, spos, blocks, nspos, nblocks]])
+                    sector_data.append((nspos, nblocks))
+            self.loader_requests.insert(0,['set_block', [notify_server, position, block, sector_data]])
 
     def remove_block(self, position, notify_server = True):
         self.add_block(position, 0)
@@ -214,15 +213,14 @@ class ModelProxy(object):
                     print('took', time.time()-self.loader_time)
                     self._update_sector(spos1, b1, v1)
                 if msg == 'sector_blocks2':
-                    spos1, b1, v1, spos2, b2, v2 = data
                     self.n_responses = self.n_requests
                     self.active_loader_request = [None, None]
                     print('took', time.time()-self.loader_time)
-                    self._update_sector(spos1, b1, v1)
-                    self._update_sector(spos2, b2, v2)
+                    for spos, b, v in data:
+                        self._update_sector(spos, b, v)
             except EOFError:
                 print('loader returned EOF')
-        
+
         if self.server and self.server.poll():
             try:
                 msg, data = self.server.recv()
@@ -300,4 +298,4 @@ class ModelProxy(object):
         if self.server is not None:
             print('closing server connection')
             self.server.send(['quit',0])
-                
+

@@ -89,17 +89,14 @@ class WorldLoader(object):
                 self._calc_vertex_data(self.pos)
                 cpipe.send_bytes(pickle.dumps(['sector_blocks',[self.pos, self.blocks, self.vt_data]],-1))
             if msg == 'set_block':
-                notify_server, pos, block_id, spos, self.blocks, nspos, nblocks = data
-                self.set_block(pos, spos, block_id)
-                self._calc_vertex_data(spos)
-                b1, v1 = self.blocks, self.vt_data
-                b2, v2 = None, None
-                if nblocks is not None:
-                    self.blocks = nblocks
-                    self.set_block(pos, nspos, block_id)
-                    self._calc_vertex_data(nspos)
-                    b2, v2 = self.blocks, self.vt_data
-                cpipe.send_bytes(pickle.dumps(['sector_blocks2',[spos, b1, v1, nspos, b2, v2]],-1))
+                notify_server, pos, block_id, sector_data = data
+                sector_result = []
+                for spos, blocks in sector_data:
+                    self.blocks = blocks
+                    self.set_block(pos, spos, block_id)
+                    self._calc_vertex_data(spos)
+                    sector_result.append((spos, self.blocks, self.vt_data))
+                cpipe.send_bytes(pickle.dumps(['sector_blocks2',sector_result],-1))
                 if spipe is not None:
                     if notify_server:
                         spipe.send(('set_block', [pos, block_id]))
@@ -207,7 +204,7 @@ class WorldLoader(object):
         self.blocks[pos[0]+1, pos[1], pos[2]+1] = val
 
 ##TODO: Move to world_proxy so that we don't need to import the module
-##and its dependencies in the main client process (probably doesn't 
+##and its dependencies in the main client process (probably doesn't
 ##really matter on Linux because of the way that fork works)
 def _start_loader(client_pipe, server_pipe):
     WorldLoader(client_pipe, server_pipe)
