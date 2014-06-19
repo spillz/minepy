@@ -466,16 +466,17 @@ class Window(pyglet.window.Window):
         gl.glTranslatef(-x, -y, -z)
 
         gl.glEnable(gl.GL_LIGHTING)
-        gl.glLightModelfv(gl.GL_LIGHT_MODEL_AMBIENT, GLfloat4(0.05,0.05,0.05,1.0))
+        gl.glDisable(gl.GL_LIGHT0)
+        gl.glEnable(gl.GL_LIGHT1)
+#        gl.glLightModelfv(gl.GL_LIGHT_MODEL_AMBIENT, GLfloat4(0.05,0.05,0.05,1.0))
         gl.glEnable(gl.GL_COLOR_MATERIAL)
-        gl.glColorMaterial(gl.GL_FRONT, gl.GL_AMBIENT_AND_DIFFUSE)
+        gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_AMBIENT_AND_DIFFUSE)
+#        gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_AMBIENT)
         #gl.glLightfv(gl.GL_LIGHT1,gl.GL_SPOT_DIRECTION, GLfloat3(0,0,-1))
         gl.glLightfv(gl.GL_LIGHT1, gl.GL_AMBIENT, GLfloat4(0.5,0.5,0.5,1.0))
         gl.glLightfv(gl.GL_LIGHT1, gl.GL_DIFFUSE, GLfloat4(1.0,1.0,1.0,1.0))
         gl.glLightfv(gl.GL_LIGHT1, gl.GL_POSITION, GLfloat4(0.35,1.0,0.65,0.0))
         #gl.glLightfv(gl.GL_LIGHT0,gl.GL_SPECULAR, GLfloat4(1,1,1,1))
-        gl.glDisable(gl.GL_LIGHT0)
-        gl.glEnable(gl.GL_LIGHT1)
 
 
     def get_frustum_circle(self):
@@ -589,8 +590,8 @@ def setup():
 
     #gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_DST_ALPHA)
     #gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
-    gl.glBlendFunc(gl.GL_ZERO, gl.GL_SRC_COLOR)
-    gl.glEnable(gl.GL_BLEND)
+#    gl.glBlendFunc(gl.GL_ZERO, gl.GL_SRC_COLOR)
+#    gl.glEnable(gl.GL_BLEND)
     gl.glAlphaFunc(gl.GL_GREATER, 0.5);
     gl.glEnable(gl.GL_ALPHA_TEST);
     # Set the texture minification/magnification function to GL_NEAREST (nearest
