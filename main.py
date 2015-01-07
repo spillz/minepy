@@ -475,7 +475,7 @@ class Window(pyglet.window.Window):
         #gl.glLightfv(gl.GL_LIGHT1,gl.GL_SPOT_DIRECTION, GLfloat3(0,0,-1))
         gl.glLightfv(gl.GL_LIGHT1, gl.GL_AMBIENT, GLfloat4(0.5,0.5,0.5,1.0))
         gl.glLightfv(gl.GL_LIGHT1, gl.GL_DIFFUSE, GLfloat4(1.0,1.0,1.0,1.0))
-        gl.glLightfv(gl.GL_LIGHT1, gl.GL_POSITION, GLfloat4(0.35,1.0,0.65,0.0))
+##        gl.glLightfv(gl.GL_LIGHT1, gl.GL_POSITION, GLfloat4(0.35,1.0,0.65,0.0))
         #gl.glLightfv(gl.GL_LIGHT0,gl.GL_SPECULAR, GLfloat4(1,1,1,1))
 
 

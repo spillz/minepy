@@ -1,3 +1,39 @@
+
+def get_network_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    s.connect(('<broadcast>', 0))
+    return s.getsockname()[0]
+
+def broadcast_server(port):
+    #UDP server responds to broadcast packets
+    #you can have more than one instance of these running
+    import socket
+    address = ('', port)
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
+    server_socket.bind(address)
+
+    while True:
+        print "Listening"
+        recv_data, addr = server_socket.recvfrom(2048)
+        print addr,':',recv_data
+        server_socket.sendto("*"+recv_data, addr)
+
+def broadcast_client(port):
+    #UDP client broadcasts to server(s)
+    import socket
+
+    address = ('<broadcast>', port)
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+    data = "Request"
+    client_socket.sendto(data, address)
+    while True:
+        recv_data, addr = client_socket.recvfrom(2048)
+        print addr,recv_data
+
 use_multiprocessing = True
 
 if use_multiprocessing:

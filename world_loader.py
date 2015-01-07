@@ -54,6 +54,19 @@ class WorldLoader(object):
         Receives request for terrain and vertices for sectors of the map from the client
         will check server for changed blocks. Current implementation is pretty dumb because
         it blocks at each client and server request and expects a single task at a time.
+        
+        TODO: load light across sector boundaries (potentially across four sectors for each loaded sector)
+        
+        When a player moves, we can drop sectors out of range and add new ones. For example:
+         ++++++
+        -OOOOO+
+        -OOOOO+
+        -OOOOO+
+        -OOOOO+
+        ------
+        0 unchanged
+        - sectors to drop
+        + sectors to add        
         '''
         import mapgen
         import select
@@ -136,6 +149,7 @@ class WorldLoader(object):
         direct_lit = numpy.cumproduct(air[:,::-1,:], axis=1)[:,::-1,:]>0
         unlit = (~direct_lit) & tr #& (self.exposed>0)
 
+        ##TODO: For more even light, calculate a separate light value for the 24 vertices not the 6 faces
         unlit_pos = SECTOR_ARRAY[unlit[1:-1,1:-1,1:-1]] + [1,1,1] ##TODO: FILTER OUT EDGES
         lit = numpy.array(direct_lit, dtype = numpy.float32)
         for i in range(16): #propagate light up to 16 blocks, light level falls at each step
@@ -145,7 +159,7 @@ class WorldLoader(object):
             z,y,x = unlit_pos.T ##TODO: don't really understand why axes need to be reversed
             for f in FACES:
                 z1,y1,x1 = (unlit_pos+f).T ##TODO: don't really understand why axes need to be reversed
-                b = lit[x1,y1,z1]*0.85
+                b = lit[x1,y1,z1]*0.75
                 a = lit[x,y,z]
                 lit[x,y,z] = a + (a<b)*(b-a)
             #now filter to remaining unlit blocks
@@ -177,7 +191,7 @@ class WorldLoader(object):
         p = (pos - numpy.array(position)).T
         b = self.blocks[1:-1,:,1:-1][p[0],p[1],p[2]]
         texture_data = BLOCK_TEXTURES[b]
-        color_data = numpy.array(BLOCK_COLORS[b]*(0.1 + 0.9*exposed_light[:,:,numpy.newaxis]),dtype = numpy.int32)
+        color_data = numpy.array(BLOCK_COLORS[b]*(0.025 + 0.975*exposed_light[:,:,numpy.newaxis]),dtype = numpy.int32)
         normal_data = numpy.tile(BLOCK_NORMALS, (len(b),1,4))#*exposed_light[:,:,numpy.newaxis]
         vertex_data = 0.5*BLOCK_VERTICES[b] + numpy.tile(pos, 4)[:,numpy.newaxis,:]
 
