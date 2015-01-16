@@ -23,7 +23,8 @@ Technical
 ---------
 
 Uses pyglet to render the graphics and numpy for its powerful and fast array processing. 
-Has much better performance than fogleman's original version and world size is unlimited.
+
+Has much better performance than fogleman's original version and world size is virtually unlimited.
 
 Currently uses minecraft style textures and you can easily add new block types. Take a look at blocks.py
 
@@ -32,6 +33,7 @@ Take a look at config.py for some configuration options, such as draw distance.
 How to Run
 ==========
 
+.. code::
     pip install pyglet
     pip install numpy
     git clone https://github.com/spillz/minepy.git
@@ -40,25 +42,30 @@ How to Run
 
 Alternatively, to try the server branch you will need to get leveldb and checkout the server branch:
 
+.. code::
     pip install leveldb
     git checkout -b server
 
 You can run it standalone:
     
+.. code::
     python main.py
     
 Or try a server with one or more clients:
 
+.. code::
    python server
    
 To get 2 clients running on the same machine, open a new terminal and type:
 
+.. code::
    python main.py localhost &
    python main.py localhost &
 
 You can also connect from elsewhere on your LAN if you know the local 
 IP of the PC running the server, i.e. you would run 
 
+.. code::
    python main.py <IPADDRESS>
 
 
@@ -67,16 +74,19 @@ Mac
 
 On Mac OS X, you may have an issue with running Pyglet in 64-bit mode. Try running Python in 32-bit mode first:
 
+.. code::
     arch -i386 python main.py
 
 If that doesn't work, set Python to run in 32-bit mode by default:
 
+.. code::
     defaults write com.apple.versioner.python Prefer-32-Bit -bool yes
 
 This assumes you are using the OS X default Python.  Works on Lion 10.7 with the default Python 2.7, and may work on other versions too.  Please raise an issue if not.
 
 Or try Pyglet 1.2 alpha, which supports 64-bit mode:
 
+.. code::
     pip install https://pyglet.googlecode.com/files/pyglet-1.2alpha1.tar.gz
 
 If you don't have pip or git
