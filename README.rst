@@ -6,26 +6,28 @@ minepy
    :scale: 50 %
 
 
-A fork of fogleman's simple Minecraft-inspired demo (https://github.com/fogleman/minecraft) written in Python being developed for and with the 6 and 7 year olds.
+A fork of fogleman's simple Minecraft-inspired demo (https://github.com/fogleman/minecraft) written in 
+Python.
 
-Known Issues
-------------
+Limitations of the Master Branch
+--------------------------------
 
 1. When moving around you will see framerate drops because terrain generation slows down the drawing speed 
-   due to python's Global Interpreter Lock (I am working on multiprocessing version that will make the 
-   framerate more consistent on reasonably modern hardware)
-2. Lighting is very simple, no shadows or dark areas of the terrain yet. (The "light" branch has a very rudimentary
-   and incomplete attempt at implementing terrain shadows.)
-3. Nothing is saved, but I plan to save changed sectors to a level DB database
+   due to python's Global Interpreter Lock. Check out the server branch, which works around this problem by 
+   using a background process instead of a thread. 
+2. Lighting is very simple, no shadows or dark areas of the terrain yet. The server branch has some basic 
+   lighting implemented but it is far from compelete and doesn't propagate across sectors.
+3. Nothing is saved. The server branch uses a level DB database to store world changes.
 
 Technical
------------
+---------
 
 Uses pyglet to render the graphics and numpy for its powerful and fast array processing. 
 Has much better performance than fogleman's original version and world size is unlimited.
 
 Currently uses minecraft style textures and you can easily add new block types. Take a look at blocks.py
 
+Take a look at config.py for some configuration options, such as draw distance. 
 
 How to Run
 ==========
@@ -35,6 +37,30 @@ How to Run
     git clone https://github.com/spillz/minepy.git
     cd minepy
     python main.py
+
+Alternatively, to try the server branch you will need to get leveldb and checkout the server branch:
+
+    pip install leveldb
+    git checkout -b server
+
+You can run it standalone:
+    
+    python main.py
+    
+Or try a server with one or more clients:
+
+   python server
+   
+To get 2 clients running on the same machine, open a new terminal and type:
+
+   python main.py localhost &
+   python main.py localhost &
+
+You can also connect from elsewhere on your LAN if you know the local 
+IP of the PC running the server, i.e. you would run 
+
+   python main.py <IPADDRESS>
+
 
 Mac
 ----
