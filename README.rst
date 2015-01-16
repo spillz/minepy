@@ -33,7 +33,7 @@ Take a look at config.py for some configuration options, such as draw distance.
 How to Run
 ==========
 
-.. code::
+.. code:: bash
     pip install pyglet
     pip install numpy
     git clone https://github.com/spillz/minepy.git
@@ -42,30 +42,30 @@ How to Run
 
 Alternatively, to try the server branch you will need to get leveldb and checkout the server branch:
 
-.. code::
+.. code:: bash
     pip install leveldb
     git checkout -b server
 
 You can run it standalone:
     
-.. code::
+.. code:: bash
     python main.py
     
 Or try a server with one or more clients:
 
-.. code::
+.. code:: bash
    python server
    
 To get 2 clients running on the same machine, open a new terminal and type:
 
-.. code::
+.. code:: bash
    python main.py localhost &
    python main.py localhost &
 
 You can also connect from elsewhere on your LAN if you know the local 
 IP of the PC running the server, i.e. you would run 
 
-.. code::
+.. code:: bash
    python main.py <IPADDRESS>
 
 
