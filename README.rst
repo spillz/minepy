@@ -43,7 +43,7 @@ How to Run
 Alternatively, to try the server branch you will need to get leveldb and checkout the server branch::
 
     pip install leveldb
-    git checkout -b server
+    git checkout server
 
 You can run it standalone::
     
