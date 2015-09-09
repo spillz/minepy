@@ -33,7 +33,8 @@ Take a look at config.py for some configuration options, such as draw distance.
 How to Run
 ==========
 
-.. code:: bash
+To get the required dependencies and sources::
+
     pip install pyglet
     pip install numpy
     git clone https://github.com/spillz/minepy.git
