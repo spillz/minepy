@@ -6,8 +6,8 @@ minepy
    :scale: 50 %
 
 
-A fork of fogleman's simple Minecraft-inspired demo (https://github.com/fogleman/minecraft) written in 
-Python.
+A fork of spillz's Minecraft- (https://github.com/spillz/minepy) written in 
+Python. Updated new things as per Python-3.0 syntax and under development.
 
 Limitations of the Master Branch
 --------------------------------

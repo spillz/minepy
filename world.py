@@ -281,7 +281,7 @@ class Model(object):
         except:
             return None
 
-    def draw(self, position, (center, radius)):
+    def draw(self, position, center, radius):
         #t = time.time()
         with self.sector_lock:
             for s in self.sectors:
@@ -338,7 +338,7 @@ class Model(object):
                     for dx,dz,ns in self.neighbor_sectors(pos):
                         ns.update_edge(-dx,-dz,s)
                 time.sleep(dt)
-                print 'sector',pos,'took',time.time()-t
+                print('sector',pos,'took',time.time()-t)
         #TODO: should probably lock the mutex for this
         removes = 0
         with self.sector_lock:
@@ -347,8 +347,8 @@ class Model(object):
                     del self.sectors[pos]
                     removes += 1
         self.thread=None
-        print 'added',adds
-        print 'removed',removes
+        print('added',adds)
+        print('removed',removes)
 
     def hit_test(self, position, vector, max_distance=8):
         """ Line of sight search from current position. If a block is
@@ -369,7 +369,7 @@ class Model(object):
         x, y, z = position
         dx, dy, dz = vector
         previous = None
-        for _ in xrange(max_distance * m):
+        for _ in x, range(max_distance * m):
             key = normalize((x, y, z))
             if key != previous:
                 b = self[key]
