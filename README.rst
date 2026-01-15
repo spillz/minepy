@@ -1,3 +1,6 @@
+**This repo is discontinued.** Development continues at (https://github.com/spillz/minepy2).
+
+
 minepy
 =======
 
