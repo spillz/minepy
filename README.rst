@@ -1,4 +1,4 @@
-**This repo is discontinued.** Development continues at (https://github.com/spillz/minepy2).
+**This repo is discontinued.** Development continues at (https://github.com/spillz/minepy2) updated to Python 3 and Pyglet 2.
 
 
 minepy
